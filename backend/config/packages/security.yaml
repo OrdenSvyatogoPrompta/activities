@@ -60,6 +60,7 @@ security:
         - { path: ^/api/auth/(register|login|refresh)$, methods: [POST], roles: PUBLIC_ACCESS }
         - { path: ^/api/clubs(/|$), methods: [GET, HEAD], roles: PUBLIC_ACCESS }
         - { path: ^/api/ping$, methods: [GET, HEAD], roles: PUBLIC_ACCESS }
+        - { path: ^/api/dictionaries$, methods: [GET, HEAD], roles: PUBLIC_ACCESS }
         - { path: ^/api/admin(/|$), roles: ROLE_ADMIN }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 

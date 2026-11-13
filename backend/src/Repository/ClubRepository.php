@@ -31,6 +31,7 @@ class ClubRepository extends ServiceEntityRepository
         return $this->createWithBranchesQueryBuilder()
             ->andWhere('c.isPublished = true')
             ->addOrderBy('c.name', 'ASC')
+            ->addOrderBy('c.slug', 'ASC')
             ->addOrderBy('b.position', 'ASC')
             ->getQuery()
             ->getResult();
