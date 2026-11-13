@@ -1,6 +1,5 @@
 FROM php:8.5-fpm-alpine
-# intl — транслитерация slug (AsciiSlugger); icu-dev нужен только на время сборки.
-# openssl (ключи JWT) в официальном образе уже вкомпилирован.
+# intl — транслитерация slug; icu-dev нужен только на время сборки
 RUN apk add --no-cache icu-libs \
     && apk add --no-cache --virtual .build-deps icu-dev \
     && docker-php-ext-install pdo_mysql intl \

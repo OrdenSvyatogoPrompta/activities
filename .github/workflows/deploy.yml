@@ -105,8 +105,8 @@ jobs:
           # StrictHostKeyChecking=yes: подключаться только к серверу из SSH_KNOWN_HOSTS
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  Port %s\n' "$SSH_PORT" > ~/.ssh/config
 
-      # Значения в одинарных кавычках: compose не раскрывает в них $ и спецсимволы.
-      # PEM-ключи JWT многострочные — compose читает многострочные значения в кавычках
+      # Значения в одинарных кавычках: compose не раскрывает в них $ и спецсимволы
+      # и читает многострочные PEM-ключи JWT
       - name: Prepare .env
         env:
           APP_SECRET: ${{ secrets.APP_SECRET }}
@@ -145,8 +145,7 @@ jobs:
 
       # Токен передаётся через stdin (не попадает в аргументы процессов и на диск сервера,
       # кроме ~/.docker/config.json на время pull) и удаляется trap'ом при любом исходе.
-      # Миграции применяются новым образом бэкенда до перезапуска сервисов: сначала
-      # поднимается MySQL, затем одноразовый контейнер выполняет doctrine:migrations:migrate.
+      # Миграции — новым образом до перезапуска сервисов.
       # </dev/null: иначе docker compose run/exec прочитает остаток этого скрипта из stdin
       - name: Pull images, migrate and restart
         env:
