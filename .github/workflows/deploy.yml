@@ -1,14 +1,13 @@
 name: Deploy
 
+# Каждый push в main (в том числе мерж PR): сразу собираются и публикуются образы,
+# затем задача deploy ждёт ручного подтверждения — кнопка «Review deployments» в запуске.
+# Ожидание задаёт защита окружения production (Settings → Environments → production →
+# Required reviewers), а не этот файл.
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
-# Не запускать два деплоя одновременно; новый ждёт, пока закончится текущий
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
 
 # По умолчанию — никаких прав; каждой задаче выдаются только нужные
 permissions: {}
@@ -58,12 +57,19 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
-  # Только ручной запуск: Actions → Deploy → Run workflow.
-  # При push в main собираются и публикуются образы, но на сервер ничего не выкатывается.
+  # Выкатывает образы, собранные задачей build этого же запуска (тег = SHA коммита).
+  # Запускается после подтверждения в окружении production; повторная выкатка без
+  # пересборки — «Re-run» только этой задачи.
   deploy:
     name: Deploy to production
     needs: build
-    if: github.event_name == 'workflow_dispatch'
+    # Выкатывать в прод можно только из main
+    if: github.ref == 'refs/heads/main'
+    # Не выкатывать два запуска одновременно. Блокировка только на этой задаче,
+    # чтобы запуск, ожидающий подтверждения, не задерживал сборку следующего мержа
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production

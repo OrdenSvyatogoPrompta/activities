@@ -73,8 +73,10 @@ Dev:
 
 Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, статика main + /api → backend) → backend → mysql`.
 Контейнеры read-only, `cap_drop: ALL`; сеть `internal` **без выхода в интернет** — бэкенд не сможет
-ходить во внешние API, пока это не поменять. Деплой: push в `main` собирает образы в GHCR,
-выкатка — только вручную (Actions → Deploy → Run workflow). Миграций в деплое пока нет.
+ходить во внешние API, пока это не поменять. Деплой (`.github/workflows/deploy.yml`): каждый push
+в `main` (в т.ч. мерж PR) сразу собирает образы в GHCR, затем задача `deploy` того же запуска ждёт
+ручного подтверждения (кнопка «Review deployments»; ожидание задаётся правилом Required reviewers
+окружения `production`). Повторная выкатка без пересборки — Re-run задачи `deploy`. Миграций в деплое пока нет.
 
 ## Фронтенд (`frontend/apps/main`)
 
