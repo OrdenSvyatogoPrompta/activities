@@ -86,7 +86,9 @@ type ClubLoadState = LoadStatus | 'notFound';
                   <div class="branch-info">
                     <dl class="details">
                       <div class="detail-row"><dt>Адрес</dt><dd>{{ branch.address }}</dd></div>
-                      <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + branch.phone" class="phone-link">{{ branch.phone }}</a></dd></div>
+                      @if (branch.phone) {
+                        <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + branch.phone" class="phone-link">{{ branch.phone }}</a></dd></div>
+                      }
                       <div class="detail-row"><dt>Расписание</dt><dd class="schedule">{{ branch.schedule }}</dd></div>
                     </dl>
                   </div>
@@ -98,7 +100,9 @@ type ClubLoadState = LoadStatus | 'notFound';
                   <div class="section__title">Контакты и расписание</div>
                   <dl class="details">
                     <div class="detail-row"><dt>Адрес</dt><dd>{{ branch.address }}</dd></div>
-                    <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + branch.phone" class="phone-link">{{ branch.phone }}</a></dd></div>
+                    @if (branch.phone) {
+                        <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + branch.phone" class="phone-link">{{ branch.phone }}</a></dd></div>
+                      }
                     <div class="detail-row"><dt>Расписание</dt><dd class="schedule">{{ branch.schedule }}</dd></div>
                   </dl>
                 </div>

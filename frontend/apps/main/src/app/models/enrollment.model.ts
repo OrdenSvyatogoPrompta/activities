@@ -20,7 +20,7 @@ export interface Enrollment {
   clubId: string;
   clubName: string;
   branchId: string | null;
-  branchName: string;
+  branchName: string | null;
   schedule: string;
   days: DayOfWeek[];
   color: string;

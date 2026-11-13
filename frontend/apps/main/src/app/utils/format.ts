@@ -7,6 +7,12 @@ export function yearsLabel(n: number): string {
   return 'лет';
 }
 
+/** `YYYY-MM-DD` → `DD.MM.YYYY`. */
+export function formatDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return d ? `${d}.${m}.${y}` : iso;
+}
+
 /** Неотрицательное целое из поля ввода или `null`. */
 export function toInt(value: string): number | null {
   const trimmed = value.trim();

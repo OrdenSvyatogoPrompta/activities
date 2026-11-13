@@ -1,4 +1,4 @@
-import { Activity, ActivityBranch } from './activity.model';
+import { Activity } from './activity.model';
 import { Enrollment, EnrollmentStatus } from './enrollment.model';
 
 export interface UserRef {
@@ -7,10 +7,10 @@ export interface UserRef {
   email: string;
 }
 
-/** Админский API не отдаёт готовые подписи `age`, `price` и `schedule`. */
-export interface AdminActivity extends Omit<Activity, 'age' | 'price' | 'branches'> {
-  branches: Omit<ActivityBranch, 'schedule'>[];
+export interface AdminActivity extends Activity {
   owner: UserRef;
+  /** `null`, пока активность не одобрена. */
+  clubIsPublished: boolean | null;
 }
 
 export interface AdminClubRef {

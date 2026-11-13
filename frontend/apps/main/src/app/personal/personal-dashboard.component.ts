@@ -12,7 +12,7 @@ import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { EnrollmentsService } from '../services/enrollments.service';
 import { RemoteList } from '../services/remote-list';
-import { yearsLabel } from '../utils/format';
+import { formatDate, yearsLabel } from '../utils/format';
 import { ActivityFormComponent } from './activity-form.component';
 import { ChildFormComponent } from './child-form.component';
 import { ProfileNameComponent } from './profile-name.component';
@@ -157,7 +157,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                     <div class="enrollment-card__accent">🎯</div>
                     <div class="enrollment-card__body">
                       <p class="enrollment-card__name">{{ e.clubName }}</p>
-                      <p class="enrollment-card__meta">{{ e.branchName }} · {{ e.schedule }}</p>
+                      <p class="enrollment-card__meta">@if (e.branchName) { {{ e.branchName }} · }{{ e.schedule }}</p>
                       <div class="enrollment-card__tags">
                         <span [class]="'status-badge status-badge--' + e.status">{{ enrollmentStatusLabel[e.status] }}</span>
                         @if (e.forChild) {
@@ -165,7 +165,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                         } @else {
                           <span class="etag">Для себя</span>
                         }
-                        <span class="etag etag--date">с {{ e.enrolledAt }}</span>
+                        <span class="etag etag--date">с {{ formatDate(e.enrolledAt) }}</span>
                       </div>
                       @if (e.status === 'rejected' && e.rejectReason) {
                         <p class="note">Причина: {{ e.rejectReason }}</p>
@@ -241,19 +241,19 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
               <div class="branch-block">
                 <div class="branch-block__head">
                   <span class="branch-block__name">Прочие</span>
-                  <span class="branch-block__addr">филиал не указан</span>
                 </div>
-                <ng-container *ngTemplateOutlet="incomingList; context: { $implicit: incoming().other }" />
+                <ng-container *ngTemplateOutlet="incomingList; context: { $implicit: incoming().other, showBranch: true }" />
               </div>
             }
 
-            <ng-template #incomingList let-items>
+            <ng-template #incomingList let-items let-showBranch="showBranch">
               <div class="branch-block__enrolls">
                 @for (ie of $any(items); track ie.id) {
                   <div class="ie-row">
                     <span class="ie-row__name">{{ ie.personName }}</span>
                     @if (ie.childName) { <span class="ie-row__child">👶 {{ ie.childName }}</span> }
-                    <span class="ie-row__date">{{ ie.enrolledAt }}</span>
+                    @if (showBranch && ie.branchName) { <span class="ie-row__child">📍 {{ ie.branchName }}</span> }
+                    <span class="ie-row__date">{{ formatDate(ie.enrolledAt) }}</span>
                     <span [class]="'status-badge status-badge--' + ie.status">{{ enrollmentStatusLabel[ie.status] }}</span>
                   </div>
                   @if (ie.status === 'pending') {
@@ -384,6 +384,7 @@ export class PersonalDashboardComponent {
   readonly enrollmentStatusLabel = ENROLLMENT_STATUS_LABEL;
   readonly activityStatusLabel   = ACTIVITY_STATUS_LABEL;
   readonly yearsLabel = yearsLabel;
+  readonly formatDate = formatDate;
   readonly canCancel  = isActiveEnrollment;
   readonly monthOffset = signal(0);
 
@@ -511,7 +512,7 @@ export class PersonalDashboardComponent {
     this.enrollmentsService.confirm(ie.id).subscribe({
       next: res => {
         this.busyId.set(null);
-        this.activitiesService.setIncomingStatus(ie.id, res?.status ?? 'confirmed');
+        this.activitiesService.setIncomingStatus(ie.id, res.status);
       },
       error: (err: unknown) => this.failIncoming(ie.id, err),
     });
@@ -529,7 +530,7 @@ export class PersonalDashboardComponent {
       next: res => {
         this.busyId.set(null);
         this.rejectingId.set(null);
-        this.activitiesService.setIncomingStatus(ie.id, res?.status ?? 'rejected');
+        this.activitiesService.setIncomingStatus(ie.id, res.status);
       },
       error: (err: unknown) => this.failIncoming(ie.id, err),
     });

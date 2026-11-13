@@ -25,6 +25,7 @@ export interface IncomingEnrollment {
   childName: string | null;
   /** `null` — филиал кружка не сопоставлен с филиалом активности. */
   activityBranchId: string | null;
+  branchName: string | null;
   enrolledAt: string;
   status: EnrollmentStatus;
 }

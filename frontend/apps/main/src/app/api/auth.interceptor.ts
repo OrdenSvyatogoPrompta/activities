@@ -7,7 +7,8 @@ import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
 
 /** На этих путях 401 не лечится refresh-ем. */
-const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
+// Выходу токен не нужен: бэкенд завершает сессию по refresh-cookie.
+const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
 
 function withToken<T>(req: HttpRequest<T>, token: string | null): HttpRequest<T> {
   return token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;

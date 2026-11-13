@@ -5,27 +5,16 @@ import { Observable } from 'rxjs';
 import { formErrorMessage, toApiError } from '../api/api-error';
 import { ACTIVITY_STATUS_LABEL, ActivityStatus } from '../models/activity.model';
 import { AdminActivity, AdminEnrollment, AdminEnrollmentFilter } from '../models/admin.model';
-import { DayOfWeek, PRICE_TYPE_LABEL, PriceType, ScheduleSlot, VISIT_TYPE_LABEL, WEEK_DAYS } from '../models/club.model';
+import { VISIT_TYPE_LABEL } from '../models/club.model';
 import { ENROLLMENT_STATUS_LABEL, Enrollment, EnrollmentStatus } from '../models/enrollment.model';
 import { AdminService } from '../services/admin.service';
 import { AuthService } from '../services/auth.service';
 import { EnrollmentsService } from '../services/enrollments.service';
 import { RemoteList } from '../services/remote-list';
-import { yearsLabel } from '../utils/format';
+import { formatDate, yearsLabel } from '../utils/format';
 
 type Tab = 'activities' | 'enrollments';
 type Target = 'activity' | 'enrollment';
-
-/** «Пн, Ср · 15:00–18:00» — дни с одинаковым временем в одной строке. */
-function formatSlots(slots: ScheduleSlot[]): string {
-  const groups = new Map<string, DayOfWeek[]>();
-  const sorted = [...slots].sort((a, b) => WEEK_DAYS.indexOf(a.day) - WEEK_DAYS.indexOf(b.day));
-  for (const s of sorted) {
-    const key = `${s.timeFrom}–${s.timeTo}`;
-    groups.set(key, [...(groups.get(key) ?? []), s.day]);
-  }
-  return [...groups].map(([time, days]) => `${days.join(', ')} · ${time}`).join('\n');
-}
 
 function actionError(err: unknown, target: Target): string {
   const e = toApiError(err);
@@ -102,7 +91,7 @@ function actionError(err: unknown, target: Target): string {
                 <div class="card__icon">{{ a.emoji }}</div>
                 <div class="card__title">
                   <p class="card__name">{{ a.name }}</p>
-                  <p class="card__meta">{{ a.category }} · {{ a.ageMin }}–{{ a.ageMax }} {{ yearsLabel(a.ageMax) }} · {{ price(a.priceType, a.priceAmount) }}</p>
+                  <p class="card__meta">{{ a.category }} · {{ a.age }} · {{ a.price }}</p>
                 </div>
                 <span [class]="'status-badge status-badge--' + a.status">{{ activityStatusLabel[a.status] }}</span>
               </div>
@@ -121,8 +110,8 @@ function actionError(err: unknown, target: Target): string {
                 <div class="branch">
                   <p class="branch__name">📍 {{ b.name }}</p>
                   <p class="branch__line">{{ b.address }}@if (b.phone) { · {{ b.phone }} }</p>
-                  @if (b.slots.length) {
-                    <p class="branch__slots">{{ slots(b.slots) }}</p>
+                  @if (b.schedule) {
+                    <p class="branch__slots">{{ b.schedule }}</p>
                   }
                 </div>
               } @empty {
@@ -137,8 +126,8 @@ function actionError(err: unknown, target: Target): string {
                 <div class="card__club">
                   <a class="btn-link" [routerLink]="['/club', clubId]">Кружок в каталоге →</a>
                   <button class="btn-small" [disabled]="busy().has(clubId)"
-                    (click)="togglePublished(clubId, isPublished(clubId, true), a.id)">
-                    {{ isPublished(clubId, true) ? 'Снять с публикации' : 'Вернуть в каталог' }}
+                    (click)="togglePublished(clubId, isPublished(clubId, a.clubIsPublished ?? true), a.id)">
+                    {{ isPublished(clubId, a.clubIsPublished ?? true) ? 'Снять с публикации' : 'Вернуть в каталог' }}
                   </button>
                 </div>
               }
@@ -208,7 +197,7 @@ function actionError(err: unknown, target: Target): string {
                       {{ e.user.name }} <span class="card__hint">(для себя)</span>
                     }
                   </p>
-                  <p class="card__meta">Подана {{ date(e.enrolledAt) }}</p>
+                  <p class="card__meta">Подана {{ formatDate(e.enrolledAt) }}</p>
                 </div>
                 <span [class]="'status-badge status-badge--' + e.status">{{ enrollmentStatusLabel[e.status] }}</span>
               </div>
@@ -282,7 +271,7 @@ export class AdminDashboardComponent {
   readonly enrollmentStatusLabel = ENROLLMENT_STATUS_LABEL;
   readonly visitTypeLabel        = VISIT_TYPE_LABEL;
   readonly yearsLabel            = yearsLabel;
-  readonly slots                 = formatSlots;
+  readonly formatDate            = formatDate;
 
   readonly tab = signal<Tab>('activities');
 
@@ -396,18 +385,6 @@ export class AdminDashboardComponent {
   async logout(): Promise<void> {
     await this.auth.logout();
     this.router.navigateByUrl('/');
-  }
-
-  price(type: PriceType, amount: number): string {
-    if (type === 'free') return PRICE_TYPE_LABEL.free;
-    const sum = amount > 0 ? `${amount.toLocaleString('ru-RU')} ₽` : PRICE_TYPE_LABEL.paid;
-    return type === 'pushkin' ? `${PRICE_TYPE_LABEL.pushkin} · ${sum}` : sum;
-  }
-
-  /** `YYYY-MM-DD` → `DD.MM.YYYY`. */
-  date(iso: string): string {
-    const [y, m, d] = iso.slice(0, 10).split('-');
-    return d ? `${d}.${m}.${y}` : iso;
   }
 
   private run<T>(id: string, target: Target, request: Observable<T>, done: (res: T) => void): void {
