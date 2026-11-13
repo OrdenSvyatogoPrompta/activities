@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Dto\Children;
 
+use App\Entity\Enum\Gender;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Тело `POST /api/me/children`: `{ firstName, lastName?, age, gender }`.
- *
- * Поля nullable, чтобы отсутствующее поле давало понятное сообщение валидатора,
- * а не ошибку денормализации.
+ * Поля nullable, а пол — строка, чтобы ошибки были русскими сообщениями валидатора,
+ * а не ошибками денормализации.
  */
 final readonly class CreateChildRequest
 {
@@ -27,7 +26,7 @@ final readonly class CreateChildRequest
         public ?int $age = null,
 
         #[Assert\NotNull(message: 'Укажите пол ребёнка')]
-        #[Assert\Choice(choices: ChildGender::VALUES, message: ChildGender::MESSAGE)]
+        #[Assert\Choice(callback: [Gender::class, 'values'], message: 'Пол должен быть male или female')]
         public ?string $gender = null,
     ) {
     }

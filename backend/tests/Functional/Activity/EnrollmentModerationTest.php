@@ -5,37 +5,26 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Activity;
 
 use App\DataFixtures\AppFixtures;
-use App\Entity\Enrollment;
-use App\Repository\EnrollmentRepository;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\ApiTestCase;
 
 /**
- * POST /api/enrollments/{id}/confirm и /reject (группа G).
- *
  * Данные — AppFixtures: кружок akvarel принадлежит Марии, в нём pending-заявки Анны (ребёнок
  * Маша, «Основной»), Игоря (для себя), Веры и Елены (филиал «Снеговая»). Сидовые кружки без
  * владельца: заявка Сони (дочь Марии) в gimnastika-voskhod — pending.
  */
-final class EnrollmentModerationTest extends WebTestCase
+final class EnrollmentModerationTest extends ApiTestCase
 {
-    use ApiTestTrait;
-
     private const string MARIA = AppFixtures::DEMO_EMAIL;
     private const string ADMIN = AppFixtures::ADMIN_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
     private const string IGOR = 'igor.sidorov@example.com';
     private const string VERA = 'vera.kozlova@example.com';
 
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
-
     public function testOwnerConfirmsEnrollment(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         $enrollment = $this->json();
@@ -56,7 +45,7 @@ final class EnrollmentModerationTest extends WebTestCase
         self::assertSame('female', $enrollment['forChild']['gender']);
 
         // Статус виден организатору во входящих заявках активности
-        $this->api(self::MARIA, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities', accessToken: $this->tokenFor(self::MARIA));
         $akvarel = array_column($this->json(), null, 'name')['Акварель'];
         $incoming = array_column($akvarel['enrollments'], 'status', 'id');
         self::assertSame('confirmed', $incoming[$id]);
@@ -64,9 +53,9 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testConfirmWithoutBody(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/confirm');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         self::assertSame('confirmed', $this->json()['status']);
@@ -74,9 +63,9 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testOwnerRejectsEnrollmentWithReason(): void
     {
-        $id = $this->enrollmentId(self::IGOR, 'akvarel');
+        $id = $this->enrollmentOf(self::IGOR, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/reject', ['reason' => '  Группа набрана  ']);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', ['reason' => '  Группа набрана  '], accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         $enrollment = $this->json();
@@ -87,9 +76,9 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testRejectWithoutReason(): void
     {
-        $id = $this->enrollmentId(self::VERA, 'akvarel');
+        $id = $this->enrollmentOf(self::VERA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/reject', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', [], accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         self::assertSame('rejected', $this->json()['status']);
@@ -98,54 +87,54 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testRejectReasonIsLimited(): void
     {
-        $id = $this->enrollmentId(self::VERA, 'akvarel');
+        $id = $this->enrollmentOf(self::VERA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/reject', ['reason' => str_repeat('я', 501)]);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', ['reason' => str_repeat('я', 501)], accessToken: $this->tokenFor(self::MARIA));
 
         self::assertContains('reason', $this->violationPaths());
     }
 
     public function testInvalidTransitionReturns409(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::MARIA));
         self::assertResponseIsSuccessful();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
-        self::assertSame('Нельзя подтвердить заявку в статусе «Подтверждена»', $this->assertProblem(409)['detail']);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::MARIA));
+        self::assertSame('Нельзя подтвердить заявку: она подтверждена', $this->assertProblem(409)['detail']);
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/reject', []);
-        self::assertSame('Нельзя отклонить заявку в статусе «Подтверждена»', $this->assertProblem(409)['detail']);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', [], accessToken: $this->tokenFor(self::MARIA));
+        self::assertSame('Нельзя отклонить заявку: она подтверждена', $this->assertProblem(409)['detail']);
     }
 
     public function testConfirmedSeedEnrollmentCannotBeConfirmedAgain(): void
     {
         // Артём в swimming-dyush — confirmed в фикстурах, кружок без владельца
-        $id = $this->enrollmentId(self::MARIA, 'swimming-dyush');
+        $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
 
-        $this->api(self::ADMIN, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
 
         $this->assertProblem(409);
     }
 
     public function testStrangerCannotModerate(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::IGOR, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::IGOR));
         $problem = $this->assertProblem(403);
         self::assertSame('Подтверждать и отклонять заявку может только владелец кружка или администратор', $problem['detail']);
 
-        $this->api(self::IGOR, 'POST', '/api/enrollments/'.$id.'/reject', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', [], accessToken: $this->tokenFor(self::IGOR));
         $this->assertProblem(403);
     }
 
     public function testAuthorCannotConfirmOwnEnrollment(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::ANNA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
 
         $this->assertProblem(403);
     }
@@ -153,21 +142,21 @@ final class EnrollmentModerationTest extends WebTestCase
     public function testForbiddenWinsOverInvalidTransition(): void
     {
         // Чужому пользователю не раскрываем статус заявки: сначала права, потом переход
-        $id = $this->enrollmentId(self::MARIA, 'swimming-dyush');
+        $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
 
-        $this->api(self::ANNA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
 
         $this->assertProblem(403);
     }
 
     public function testOwnerlessClubIsModeratedOnlyByAdmin(): void
     {
-        $id = $this->enrollmentId(self::MARIA, 'gimnastika-voskhod');
+        $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
 
-        $this->api(self::MARIA, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::MARIA));
         $this->assertProblem(403);
 
-        $this->api(self::ADMIN, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
         self::assertResponseIsSuccessful();
         self::assertSame('confirmed', $this->json()['status']);
         self::assertSame('Соня', $this->json()['forChild']['firstName']);
@@ -175,9 +164,9 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testAdminCanModerateOwnedClub(): void
     {
-        $id = $this->enrollmentId(self::VERA, 'akvarel');
+        $id = $this->enrollmentOf(self::VERA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(self::ADMIN, 'POST', '/api/enrollments/'.$id.'/reject', ['reason' => 'Дубль']);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', ['reason' => 'Дубль'], accessToken: $this->tokenFor(self::ADMIN));
 
         self::assertResponseIsSuccessful();
         self::assertSame('rejected', $this->json()['status']);
@@ -185,35 +174,21 @@ final class EnrollmentModerationTest extends WebTestCase
 
     public function testUnknownEnrollmentReturns404(): void
     {
-        $this->api(self::ADMIN, 'POST', '/api/enrollments/0192f000-0000-7000-8000-000000000000/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/0192f000-0000-7000-8000-000000000000/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
         self::assertSame('Заявка не найдена', $this->assertProblem(404)['detail']);
 
-        $this->api(self::ADMIN, 'POST', '/api/enrollments/not-a-uuid/reject', []);
+        $this->jsonRequest('POST', '/api/enrollments/not-a-uuid/reject', [], accessToken: $this->tokenFor(self::ADMIN));
         $this->assertProblem(404);
     }
 
     public function testRequiresAuthentication(): void
     {
-        $id = $this->enrollmentId(self::ANNA, 'akvarel');
+        $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
-        $this->api(null, 'POST', '/api/enrollments/'.$id.'/confirm', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', []);
         $this->assertProblem(401);
 
-        $this->api(null, 'POST', '/api/enrollments/'.$id.'/reject', []);
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', []);
         $this->assertProblem(401);
-    }
-
-    /**
-     * Id единственной не отменённой заявки пользователя в кружок.
-     */
-    private function enrollmentId(string $email, string $clubSlug): string
-    {
-        $enrollments = array_values(array_filter(
-            static::getContainer()->get(EnrollmentRepository::class)->findByUser($this->user($email)),
-            static fn (Enrollment $enrollment): bool => $enrollment->getClub()->getSlug() === $clubSlug,
-        ));
-        self::assertCount(1, $enrollments, \sprintf('Ожидалась одна заявка %s в %s', $email, $clubSlug));
-
-        return $enrollments[0]->getId()->toRfc4122();
     }
 }

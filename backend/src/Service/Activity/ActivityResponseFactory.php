@@ -7,22 +7,19 @@ namespace App\Service\Activity;
 use App\Dto\Activity\ActivityBranchResponse;
 use App\Dto\Activity\ActivityResponse;
 use App\Dto\Activity\IncomingEnrollmentResponse;
-use App\Dto\Activity\ScheduleSlotResponse;
+use App\Dto\Catalog\ScheduleSlotView;
 use App\Entity\Activity;
 use App\Entity\ActivityBranch;
 use App\Entity\Enrollment;
-use App\Entity\Enum\DayOfWeek;
-use App\Entity\ScheduleSlot;
+use App\Repository\EnrollmentRepository;
 use App\Service\Formatter\AgeFormatter;
 use App\Service\Formatter\PriceFormatter;
 use App\Service\Formatter\ScheduleFormatter;
 
-/**
- * Сущности активности → DTO ответа API (раздел 4, «Группа G»).
- */
 final readonly class ActivityResponseFactory
 {
     public function __construct(
+        private EnrollmentRepository $enrollments,
         private PriceFormatter $priceFormatter,
         private AgeFormatter $ageFormatter,
         private ScheduleFormatter $scheduleFormatter,
@@ -30,9 +27,34 @@ final readonly class ActivityResponseFactory
     }
 
     /**
-     * @param list<Enrollment> $enrollments входящие заявки в кружок активности (без cancelled)
+     * Входящие заявки всех кружков загружаются одним запросом.
+     *
+     * @param list<Activity> $activities
+     *
+     * @return list<ActivityResponse>
      */
-    public function activity(Activity $activity, array $enrollments = []): ActivityResponse
+    public function createList(array $activities): array
+    {
+        $clubs = array_values(array_filter(array_map(static fn (Activity $activity) => $activity->getClub(), $activities)));
+
+        $incoming = [];
+        foreach ($this->enrollments->findIncomingForClubs($clubs) as $enrollment) {
+            $incoming[$enrollment->getClub()->getId()->toRfc4122()][] = $enrollment;
+        }
+
+        return array_map(
+            fn (Activity $activity): ActivityResponse => $this->create(
+                $activity,
+                $incoming[$activity->getClub()?->getId()->toRfc4122() ?? ''] ?? [],
+            ),
+            $activities,
+        );
+    }
+
+    /**
+     * @param list<Enrollment> $enrollments входящие заявки в кружок активности
+     */
+    public function create(Activity $activity, array $enrollments = []): ActivityResponse
     {
         return new ActivityResponse(
             id: $activity->getId()->toRfc4122(),
@@ -53,7 +75,7 @@ final readonly class ActivityResponseFactory
             tags: $activity->getTags(),
             createdAt: $activity->getCreatedAt()->format(\DATE_ATOM),
             branches: array_values(array_map($this->branch(...), $activity->getBranches()->toArray())),
-            enrollments: array_values(array_map($this->incoming(...), $enrollments)),
+            enrollments: array_map($this->incoming(...), $enrollments),
         );
     }
 
@@ -67,17 +89,10 @@ final readonly class ActivityResponseFactory
             address: $branch->getAddress(),
             phone: $branch->getPhone(),
             schedule: $this->scheduleFormatter->formatBranch($branch),
-            days: array_map(static fn (DayOfWeek $day): string => $day->value, $branch->getDays()),
+            days: array_column($branch->getDays(), 'value'),
             timeFrom: $first?->getTimeFromString(),
             timeTo: $first?->getTimeToString(),
-            slots: array_map(
-                static fn (ScheduleSlot $slot): ScheduleSlotResponse => new ScheduleSlotResponse(
-                    $slot->getDay()->value,
-                    $slot->getTimeFromString(),
-                    $slot->getTimeToString(),
-                ),
-                $branch->getSlots(),
-            ),
+            slots: array_map(ScheduleSlotView::fromEntity(...), $branch->getSlots()),
         );
     }
 

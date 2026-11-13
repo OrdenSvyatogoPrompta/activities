@@ -8,16 +8,13 @@ use App\Entity\Enum\DayOfWeek;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
-/**
- * Слот расписания в теле создания активности: `{ day, timeFrom, timeTo }`.
- */
 final readonly class ScheduleSlotInput
 {
-    public const string TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
+    private const string TIME_PATTERN = '/^([01]\d|2[0-3]):[0-5]\d$/';
 
     public function __construct(
         #[Assert\NotBlank(message: 'Укажите день недели')]
-        #[Assert\Choice(callback: 'days', message: 'Допустимые дни: Пн, Вт, Ср, Чт, Пт, Сб, Вс')]
+        #[Assert\Choice(callback: [DayOfWeek::class, 'values'], message: 'Допустимые дни: Пн, Вт, Ср, Чт, Пт, Сб, Вс')]
         public ?string $day = null,
 
         #[Assert\NotBlank(message: 'Укажите время начала')]
@@ -30,14 +27,6 @@ final readonly class ScheduleSlotInput
     ) {
     }
 
-    /**
-     * @return list<string>
-     */
-    public static function days(): array
-    {
-        return array_map(static fn (DayOfWeek $day): string => $day->value, DayOfWeek::cases());
-    }
-
     #[Assert\Callback]
     public function validateTimeRange(ExecutionContextInterface $context): void
     {
@@ -47,7 +36,7 @@ final readonly class ScheduleSlotInput
             return;
         }
 
-        // Формат ЧЧ:ММ с ведущими нулями — строки сравниваются как время
+        // ЧЧ:ММ с ведущими нулями сравниваются как строки
         if ($this->timeFrom >= $this->timeTo) {
             $context->buildViolation('Время окончания должно быть позже времени начала')
                 ->atPath('timeTo')

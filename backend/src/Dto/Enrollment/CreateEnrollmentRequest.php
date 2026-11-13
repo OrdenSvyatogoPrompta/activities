@@ -7,18 +7,12 @@ namespace App\Dto\Enrollment;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Тело `POST /api/enrollments`: `{ clubId (slug), branchId?, childId? }`.
- *
- * - `branchId` можно не передавать, если у кружка один филиал — сервер подставит его;
- * - `childId` не передан — заявка «для себя».
- *
- * Принадлежность филиала кружку и ребёнка автору проверяет EnrollmentService (→ 422).
+ * `branchId` можно не передавать, если у кружка один филиал; без `childId` — заявка «для себя».
  */
 final readonly class CreateEnrollmentRequest
 {
     public function __construct(
-        // Значение по умолчанию — чтобы отсутствующее поле дало понятное русское
-        // сообщение NotBlank, а не ошибку денормализации
+        // Значение по умолчанию — чтобы отсутствующее поле дало русское сообщение NotBlank
         #[Assert\NotBlank(message: 'Укажите кружок')]
         #[Assert\Length(max: 255, maxMessage: 'Идентификатор кружка не длиннее {{ limit }} символов')]
         public string $clubId = '',

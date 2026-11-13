@@ -14,11 +14,8 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Модерация активностей: одобрение (публикация кружка в каталоге) и отклонение.
- *
- * Оба действия выполняются в транзакции с блокировкой строки активности
- * (SELECT … FOR UPDATE): два администратора, одобряющие одну активность одновременно,
- * не создадут два кружка — второй получит 409.
+ * Строка активности блокируется (SELECT … FOR UPDATE), чтобы два одновременных одобрения
+ * не создали два кружка: второе получит 409.
  */
 final readonly class ActivityModerator
 {
@@ -30,12 +27,6 @@ final readonly class ActivityModerator
     ) {
     }
 
-    /**
-     * Создаёт из активности опубликованный кружок (владелец — автор активности),
-     * копирует филиалы со слотами и связывает кружок с активностью.
-     *
-     * @throws ModerationConflictException активность не pending или без филиалов (409)
-     */
     public function approve(Activity $activity, User $moderator): Club
     {
         return $this->entityManager->wrapInTransaction(function () use ($activity, $moderator): Club {
@@ -74,11 +65,6 @@ final readonly class ActivityModerator
         });
     }
 
-    /**
-     * @param string $comment причина отклонения (непустая — проверяет DTO запроса)
-     *
-     * @throws ModerationConflictException активность не pending (409)
-     */
     public function reject(Activity $activity, string $comment, User $moderator): void
     {
         $this->entityManager->wrapInTransaction(function () use ($activity, $comment, $moderator): void {
@@ -87,9 +73,6 @@ final readonly class ActivityModerator
         });
     }
 
-    /**
-     * Перечитывает активность под блокировкой и проверяет, что она всё ещё на рассмотрении.
-     */
     private function lockPending(Activity $activity): void
     {
         $this->entityManager->refresh($activity, LockMode::PESSIMISTIC_WRITE);

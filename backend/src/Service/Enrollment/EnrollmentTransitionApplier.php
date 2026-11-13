@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Service\Enrollment;
 
 use App\Entity\Enrollment;
-use App\Entity\Enum\EnrollmentStatus;
 use App\Workflow\EnrollmentWorkflow;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -15,17 +14,8 @@ use Symfony\Component\Workflow\TransitionBlocker;
 use Symfony\Component\Workflow\WorkflowInterface;
 
 /**
- * Применяет переход workflow `enrollment` и переводит отказ в HTTP-ошибку:
- * - блокер EnrollmentWorkflow::BLOCKED_ACCESS_DENIED (guard, нет прав) → 403;
- * - только TransitionBlocker::BLOCKED_BY_MARKING (переход недопустим из текущего статуса) → 409;
- * - любой другой блокер → 403.
- *
- * Workflow сначала проверяет статус и лишь затем зовёт guard, а из нескольких
- * одноимённых переходов state machine (cancel: pending|confirmed) в исключение попадает
- * список блокеров «не по статусу», если такой есть. Поэтому «нет прав» побеждает,
- * когда статус подходит, а «недопустимый переход» — когда не подходит.
- *
- * Изменения не сохраняет — flush делает вызывающий сервис.
+ * Применяет переход workflow и переводит отказ в HTTP: нет прав — 403,
+ * переход недопустим из текущего статуса — 409. Flush делает вызывающий.
  */
 final readonly class EnrollmentTransitionApplier
 {
@@ -47,19 +37,16 @@ final readonly class EnrollmentTransitionApplier
     ) {
     }
 
-    /**
-     * @throws HttpException 403 — нет прав на переход, 409 — переход недопустим из текущего статуса
-     */
     public function apply(Enrollment $enrollment, string $transition): void
     {
         try {
             $this->enrollmentStateMachine->apply($enrollment, $transition);
         } catch (NotEnabledTransitionException $e) {
-            throw self::toHttpException($e, $enrollment->getStatus());
+            throw self::toHttpException($e, $enrollment);
         }
     }
 
-    public static function toHttpException(NotEnabledTransitionException $e, EnrollmentStatus $status): HttpException
+    private static function toHttpException(NotEnabledTransitionException $e, Enrollment $enrollment): HttpException
     {
         $blockers = $e->getTransitionBlockerList();
 
@@ -78,7 +65,7 @@ final readonly class EnrollmentTransitionApplier
             return new ConflictHttpException(\sprintf(
                 'Нельзя %s заявку: она %s',
                 self::TRANSITION_LABELS[$e->getTransitionName()] ?? 'изменить',
-                self::STATUS_LABELS[$status->value] ?? $status->value,
+                self::STATUS_LABELS[$enrollment->getStatus()->value],
             ), $e);
         }
 

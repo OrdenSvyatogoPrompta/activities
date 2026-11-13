@@ -8,9 +8,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Ответ об ошибке в формате RFC 7807 (`application/problem+json`).
- *
- * `{ "type": "about:blank", "title": "…", "status": 422, "detail": "…", …дополнительные поля }`
+ * RFC 7807.
  */
 final class ProblemResponse extends JsonResponse
 {
@@ -35,12 +33,11 @@ final class ProblemResponse extends JsonResponse
     ];
 
     /**
-     * @param array<string, mixed>                    $extra   дополнительные поля, например `violations`
+     * @param array<string, mixed>                    $extra
      * @param array<string, string|list<string>|null> $headers
      */
     public function __construct(int $status, ?string $detail = null, ?string $title = null, array $extra = [], array $headers = [])
     {
-        // Кириллица и слеши без экранирования — ответ читают люди
         $this->encodingOptions = self::DEFAULT_ENCODING_OPTIONS | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES;
 
         $data = [

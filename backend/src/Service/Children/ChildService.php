@@ -17,10 +17,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Дети пользователя (группа E): список, добавление, редактирование, удаление.
- *
- * Доступ только к своим детям: чужой, несуществующий и некорректный id одинаково дают 404,
- * чтобы не раскрывать существование чужих записей.
+ * Чужой, несуществующий и некорректный id одинаково дают 404.
  */
 final readonly class ChildService
 {
@@ -56,7 +53,7 @@ final readonly class ChildService
     }
 
     /**
-     * @param bool $lastNameProvided ключ `lastName` есть в теле запроса (null/"" — стереть фамилию)
+     * @param bool $lastNameProvided ключ `lastName` есть в теле: null стирает фамилию
      */
     public function update(User $parent, Uuid|string $id, UpdateChildRequest $request, bool $lastNameProvided): Child
     {
@@ -81,8 +78,7 @@ final readonly class ChildService
     }
 
     /**
-     * Удаление запрещено, пока у ребёнка есть активные заявки (pending/confirmed).
-     * Завершённые заявки (rejected/cancelled) удаляются вместе с ребёнком (ON DELETE CASCADE).
+     * Завершённые заявки удаляются вместе с ребёнком (ON DELETE CASCADE).
      */
     public function delete(User $parent, Uuid|string $id): void
     {
@@ -96,7 +92,7 @@ final readonly class ChildService
         $this->em->flush();
     }
 
-    public function get(User $parent, Uuid|string $id): Child
+    private function get(User $parent, Uuid|string $id): Child
     {
         return $this->children->findOneOwnedBy($id, $parent)
             ?? throw new NotFoundHttpException('Ребёнок не найден');

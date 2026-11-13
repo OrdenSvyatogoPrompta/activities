@@ -12,14 +12,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
- * Тело успешного ответа аутентификации: lexik отдаёт `{ token }`, контракт API —
- * - вход и регистрация: `{ accessToken, user }`;
- * - POST /api/auth/refresh: `{ accessToken }`.
- *
- * Событие бросает обработчик успеха lexik и при json_login, и при refresh_jwt (gesdinet),
- * и в TokenIssuer после регистрации. Приоритет ниже, чем у слушателя gesdinet (0), который
- * ставит cookie с refresh-токеном: тело собирается заново, и refresh-токен в него не попадает,
- * даже если gesdinet его туда положил.
+ * lexik отдаёт `{ token }`; API — `{ accessToken, user }`, а для refresh — `{ accessToken }`.
+ * Приоритет ниже, чем у слушателя gesdinet (0): тело собирается заново, без refresh-токена.
  */
 #[AsEventListener(event: Events::AUTHENTICATION_SUCCESS, priority: -16)]
 final readonly class AuthenticationSuccessListener
@@ -36,7 +30,6 @@ final readonly class AuthenticationSuccessListener
     {
         $data = ['accessToken' => $event->getData()['token'] ?? null];
 
-        // Маршрут определяет роутер ещё до firewall, поэтому `_route` уже есть
         $route = $this->requestStack->getMainRequest()?->attributes->get('_route');
         $user = $event->getUser();
 

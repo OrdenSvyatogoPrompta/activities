@@ -5,40 +5,30 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Admin;
 
 use App\DataFixtures\AppFixtures;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\ApiTestCase;
 
-/**
- * Группа H: список заявок для администратора (`?status=…&ownerless=true`).
- */
-final class EnrollmentListTest extends WebTestCase
+final class EnrollmentListTest extends ApiTestCase
 {
-    use AdminApiTestTrait;
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
-
     public function testRequiresAuthentication(): void
     {
-        $this->requestAs(null, 'GET', '/api/admin/enrollments');
+        $this->jsonRequest('GET', '/api/admin/enrollments');
 
         $this->assertProblem(401);
     }
 
     public function testIsForbiddenForRegularUser(): void
     {
-        $this->requestAs($this->demoUser(), 'GET', '/api/admin/enrollments');
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::DEMO_EMAIL));
 
         $this->assertProblem(403);
     }
 
     public function testDefaultsToPendingEnrollmentsOfAllClubs(): void
     {
-        $this->requestAs($this->admin(), 'GET', '/api/admin/enrollments');
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
-        $enrollments = $this->responseJson();
+        $enrollments = $this->json();
         self::assertSame(['pending'], array_values(array_unique(array_column($enrollments, 'status'))));
 
         $clubIds = array_column($enrollments, 'clubId');
@@ -54,10 +44,10 @@ final class EnrollmentListTest extends WebTestCase
 
     public function testOwnerlessFilterReturnsEnrollmentsWithClubAndApplicant(): void
     {
-        $this->requestAs($this->admin(), 'GET', '/api/admin/enrollments', query: ['status' => 'pending', 'ownerless' => 'true']);
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=pending&ownerless=true', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
-        $enrollments = $this->responseJson();
+        $enrollments = $this->json();
         self::assertNotEmpty($enrollments);
         foreach ($enrollments as $enrollment) {
             self::assertNull($enrollment['club']['owner'], 'в выборке только кружки без владельца');
@@ -71,7 +61,7 @@ final class EnrollmentListTest extends WebTestCase
         self::assertSame($sonya['clubName'], $sonya['club']['name']);
         self::assertSame(AppFixtures::DEMO_EMAIL, $sonya['user']['email']);
         self::assertSame('Иванова Мария', $sonya['user']['name']);
-        self::assertSame($this->demoUser()->getId()->toRfc4122(), $sonya['user']['id']);
+        self::assertSame($this->user(AppFixtures::DEMO_EMAIL)->getId()->toRfc4122(), $sonya['user']['id']);
         self::assertSame('Соня', $sonya['forChild']['firstName']);
         self::assertSame(5, $sonya['forChild']['age']);
         self::assertSame('female', $sonya['forChild']['gender']);
@@ -85,19 +75,19 @@ final class EnrollmentListTest extends WebTestCase
 
     public function testOwnedClubEnrollmentsHaveOwner(): void
     {
-        $this->requestAs($this->admin(), 'GET', '/api/admin/enrollments');
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
 
-        $akvarel = $this->findByClub($this->responseJson(), 'akvarel');
+        $akvarel = $this->findByClub($this->json(), 'akvarel');
         self::assertSame(AppFixtures::DEMO_EMAIL, $akvarel['club']['owner']['email']);
         self::assertSame('Петрова Анна', $akvarel['user']['name']);
     }
 
     public function testStatusFilter(): void
     {
-        $this->requestAs($this->admin(), 'GET', '/api/admin/enrollments', query: ['status' => 'confirmed', 'ownerless' => '1']);
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=confirmed&ownerless=1', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
-        $enrollments = $this->responseJson();
+        $enrollments = $this->json();
         self::assertSame(['confirmed'], array_values(array_unique(array_column($enrollments, 'status'))));
 
         $artem = $this->findByClub($enrollments, 'swimming-dyush');
@@ -107,10 +97,9 @@ final class EnrollmentListTest extends WebTestCase
 
     public function testUnknownStatusReturns422(): void
     {
-        $this->requestAs($this->admin(), 'GET', '/api/admin/enrollments', query: ['status' => 'archived']);
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=archived', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
 
-        $problem = $this->assertProblem(422);
-        self::assertContains('status', self::violationPaths($problem));
+        self::assertContains('status', $this->violationPaths());
     }
 
     /**

@@ -16,23 +16,13 @@ use Symfony\Component\Validator\ConstraintViolationInterface;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 /**
- * Превращает исключение в ответ `application/problem+json` (раздел 2 docs/backend-requirements.md).
- *
- * Правила:
- * - статус берётся из HttpExceptionInterface (в т. ч. `#[WithHttpStatus]` — его превращает
- *   в HttpException ErrorListener фреймворка), ошибки Security — 401/403, остальное — 500;
- * - ошибки валидации (`#[MapRequestPayload]`, `#[MapQueryString]`) — 422 со списком `violations`
- *   (`{ propertyPath, message }`); сообщения задаются в `#[Assert\...(message: '…')]` на русском;
- * - `detail` берётся из сообщения исключения, только если оно на русском, т. е. написано
- *   в коде приложения: `throw new ConflictHttpException('Заявка уже существует')`.
- *   Англоязычные сообщения фреймворка заменяются стандартным русским текстом;
- * - текст исключений 5xx наружу не отдаётся; в debug-режиме оригинал виден в поле `debug`.
+ * `detail` берётся из сообщения исключения, только если оно на русском (написано в коде
+ * приложения); английские сообщения фреймворка и текст 5xx заменяются стандартными.
  */
 final readonly class ProblemFactory
 {
     /**
-     * Сообщения, которые MapRequestPayload формирует сам, без валидатора (несовпадение типов
-     * при денормализации). Переводчик не установлен, поэтому переводим здесь.
+     * Сообщения денормализации MapRequestPayload: переводчик не установлен.
      */
     private const array VIOLATION_TEMPLATES = [
         'This value should be of type {{ type }}.' => 'Значение должно иметь тип {{ type }}.',
@@ -75,16 +65,12 @@ final readonly class ProblemFactory
             ];
         }
 
-        // Для ошибок валидации сообщение исключения — склейка всех нарушений (местами
-        // на английском), подробности и так в violations
+        // Сообщение исключения валидации — склейка нарушений, они и так в violations
         $detail = null !== $violations ? self::DEFAULT_DETAILS[Response::HTTP_UNPROCESSABLE_ENTITY] : $this->detail($throwable, $status);
 
         return new ProblemResponse($status, $detail, null, $extra, $headers);
     }
 
-    /**
-     * Ошибка аутентификации: 401 с заголовком `WWW-Authenticate: Bearer` (или 429 при throttling).
-     */
     public function authenticationProblem(string $detail, int $status = Response::HTTP_UNAUTHORIZED): ProblemResponse
     {
         $headers = Response::HTTP_UNAUTHORIZED === $status ? ['WWW-Authenticate' => 'Bearer'] : [];

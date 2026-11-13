@@ -4,22 +4,16 @@ declare(strict_types=1);
 
 namespace App\Controller\Admin;
 
+use App\Controller\ApiController;
 use App\Dto\Admin\ClubPublicationPayload;
 use App\Dto\Admin\ClubPublicationView;
 use App\Repository\ClubRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-/**
- * Снятие кружка с публикации и возврат в каталог (группа H, опционально).
- */
-#[IsGranted('ROLE_ADMIN')]
-final class ClubPublicationController extends AbstractController
+final class ClubPublicationController extends ApiController
 {
     #[Route('/api/admin/clubs/{slug}', name: 'api_admin_clubs_publication', methods: ['PATCH'])]
     public function __invoke(
@@ -29,7 +23,7 @@ final class ClubPublicationController extends AbstractController
         EntityManagerInterface $entityManager,
     ): JsonResponse {
         $club = $clubRepository->findOneBySlugWithBranches($slug)
-            ?? throw new NotFoundHttpException('Кружок не найден');
+            ?? throw $this->createNotFoundException('Кружок не найден');
 
         $club->setPublished($payload->isPublished);
         $entityManager->flush();

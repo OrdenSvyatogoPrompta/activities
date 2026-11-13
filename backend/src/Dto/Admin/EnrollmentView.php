@@ -4,29 +4,25 @@ declare(strict_types=1);
 
 namespace App\Dto\Admin;
 
+use App\Dto\Enrollment\EnrollmentResponse;
+
 /**
- * Заявка для администратора: формат `Enrollment` (контракт группы F) + `club` и заявитель `user`.
+ * Формат заявки плюс кружок и заявитель.
  */
-final readonly class EnrollmentView
+final readonly class EnrollmentView implements \JsonSerializable
 {
-    /**
-     * @param list<string> $days
-     */
     public function __construct(
-        public string $id,
-        public string $clubId,
-        public string $clubName,
-        public ?string $branchId,
-        public ?string $branchName,
-        public ?string $schedule,
-        public array $days,
-        public string $color,
-        public ?ChildView $forChild,
-        public string $enrolledAt,
-        public string $status,
-        public ?string $rejectReason,
+        public EnrollmentResponse $enrollment,
         public ClubRefView $club,
         public UserRefView $user,
     ) {
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return [...get_object_vars($this->enrollment), 'club' => $this->club, 'user' => $this->user];
     }
 }

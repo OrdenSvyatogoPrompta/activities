@@ -7,9 +7,7 @@ namespace App\Repository;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Разбор id из URL/тела запроса: некорректная строка — null (→ 404/422), а не исключение.
- *
- * @internal
+ * Некорректный id из запроса — null (→ 404/422), а не исключение.
  */
 final class Uuids
 {

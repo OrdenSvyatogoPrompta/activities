@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace App\Dto\Catalog;
 
-/**
- * Филиал кружка в API (`Branch` из models/club.model.ts + `slots`).
- */
 final readonly class BranchView
 {
     /**
-     * @param list<string>           $days  дни занятий, Пн…Вс
-     * @param list<ScheduleSlotView> $slots слоты по дню недели и времени
+     * @param list<string>           $days
+     * @param list<ScheduleSlotView> $slots
      */
     public function __construct(
         public string $id,

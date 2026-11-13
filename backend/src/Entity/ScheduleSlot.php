@@ -12,11 +12,7 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Слот расписания: день недели и время «с — по» (`timeFrom < timeTo`).
- *
- * Принадлежит ровно одному владельцу — филиалу кружка (Branch) или филиалу активности
- * (ActivityBranch); владелец назначается через Branch::addSlot() / ActivityBranch::addSlot().
- * Время хранится как TIME, в DateTimeImmutable дата всегда 1970-01-01.
+ * Принадлежит ровно одному владельцу: филиалу кружка или филиалу активности.
  */
 #[ORM\Entity(repositoryClass: ScheduleSlotRepository::class)]
 #[ORM\Table(name: 'schedule_slot')]
@@ -43,12 +39,6 @@ class ScheduleSlot
     #[ORM\Column(type: Types::TIME_IMMUTABLE)]
     private \DateTimeImmutable $timeTo;
 
-    /**
-     * @param \DateTimeImmutable|string $timeFrom время или строка `HH:MM`
-     * @param \DateTimeImmutable|string $timeTo   время или строка `HH:MM`
-     *
-     * @throws \InvalidArgumentException если время некорректно или timeFrom >= timeTo
-     */
     public function __construct(DayOfWeek $day, \DateTimeImmutable|string $timeFrom, \DateTimeImmutable|string $timeTo)
     {
         $from = self::normalizeTime($timeFrom);
@@ -63,27 +53,9 @@ class ScheduleSlot
         $this->timeTo = $to;
     }
 
-    /**
-     * Копия слота без владельца — для переноса расписания активности в кружок при одобрении.
-     */
     public function copy(): self
     {
         return new self($this->day, $this->timeFrom, $this->timeTo);
-    }
-
-    public function getId(): Uuid
-    {
-        return $this->id;
-    }
-
-    public function getBranch(): ?Branch
-    {
-        return $this->branch;
-    }
-
-    public function getActivityBranch(): ?ActivityBranch
-    {
-        return $this->activityBranch;
     }
 
     public function getDay(): DayOfWeek
@@ -91,38 +63,23 @@ class ScheduleSlot
         return $this->day;
     }
 
-    public function getTimeFrom(): \DateTimeImmutable
-    {
-        return $this->timeFrom;
-    }
-
-    public function getTimeTo(): \DateTimeImmutable
-    {
-        return $this->timeTo;
-    }
-
-    /** `HH:MM` */
     public function getTimeFromString(): string
     {
         return $this->timeFrom->format('H:i');
     }
 
-    /** `HH:MM` */
     public function getTimeToString(): string
     {
         return $this->timeTo->format('H:i');
     }
 
-    /**
-     * Ключ сортировки: день недели, затем время начала и окончания.
-     */
     public function sortKey(): string
     {
         return $this->day->isoNumber().$this->getTimeFromString().$this->getTimeToString();
     }
 
     /**
-     * Сортирует слоты по дню недели (Пн…Вс) и времени.
+     * По дню недели и времени.
      *
      * @param iterable<self> $slots
      *
@@ -137,8 +94,22 @@ class ScheduleSlot
     }
 
     /**
-     * @internal вызывается из Branch::addSlot()
+     * Уникальные дни слотов, Пн…Вс.
+     *
+     * @param iterable<self> $slots
+     *
+     * @return list<DayOfWeek>
      */
+    public static function days(iterable $slots): array
+    {
+        $days = [];
+        foreach ($slots as $slot) {
+            $days[] = $slot->day;
+        }
+
+        return DayOfWeek::sorted($days);
+    }
+
     public function attachToBranch(Branch $branch): void
     {
         if (null !== $this->activityBranch) {
@@ -147,9 +118,6 @@ class ScheduleSlot
         $this->branch = $branch;
     }
 
-    /**
-     * @internal вызывается из ActivityBranch::addSlot()
-     */
     public function attachToActivityBranch(ActivityBranch $activityBranch): void
     {
         if (null !== $this->branch) {

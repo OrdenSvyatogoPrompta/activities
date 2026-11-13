@@ -6,9 +6,6 @@ namespace App\Service\Admin;
 
 use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 
-/**
- * Модерация невозможна в текущем состоянии активности (уже одобрена/отклонена, нет филиалов) → 409.
- */
 #[WithHttpStatus(409)]
 final class ModerationConflictException extends \RuntimeException
 {

@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Dto\Catalog;
 
-/**
- * Справочники перечислений для фронта: значения в том же виде, что и в Club.
- */
 final readonly class DictionariesView
 {
     /**

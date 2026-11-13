@@ -6,9 +6,6 @@ namespace App\Dto\Admin;
 
 use App\Entity\Club;
 
-/**
- * Ответ `PATCH /api/admin/clubs/{slug}`: `{ id (slug), name, isPublished }`.
- */
 final readonly class ClubPublicationView
 {
     public function __construct(

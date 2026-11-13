@@ -4,21 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Platform;
 
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\ApiTestCase;
 
-/**
- * Smoke-тесты платформы (группа A): маршрутизация, firewall, формат ошибок.
- */
-final class PlatformSmokeTest extends WebTestCase
+final class PlatformSmokeTest extends ApiTestCase
 {
-    private KernelBrowser $client;
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
-
     public function testPingIsPublic(): void
     {
         $this->client->request('GET', '/api/ping');
@@ -29,7 +18,7 @@ final class PlatformSmokeTest extends WebTestCase
 
     public function testProtectedRouteWithoutTokenReturns401Problem(): void
     {
-        $this->client->request('GET', '/api/_test/protected');
+        $this->client->request('GET', '/api/me');
 
         $problem = $this->assertProblem(401);
         self::assertResponseHeaderSame('WWW-Authenticate', 'Bearer');
@@ -38,7 +27,7 @@ final class PlatformSmokeTest extends WebTestCase
 
     public function testProtectedRouteWithInvalidTokenReturns401Problem(): void
     {
-        $this->client->request('GET', '/api/_test/protected', server: ['HTTP_AUTHORIZATION' => 'Bearer not-a-jwt']);
+        $this->client->request('GET', '/api/me', server: ['HTTP_AUTHORIZATION' => 'Bearer not-a-jwt']);
 
         $problem = $this->assertProblem(401);
         self::assertSame('Access-токен недействителен', $problem['detail']);
@@ -46,7 +35,7 @@ final class PlatformSmokeTest extends WebTestCase
 
     public function testAdminRouteWithoutTokenReturns401Problem(): void
     {
-        $this->client->request('GET', '/api/admin/_test/protected');
+        $this->client->request('GET', '/api/admin/enrollments');
 
         $this->assertProblem(401);
     }
@@ -103,31 +92,5 @@ final class PlatformSmokeTest extends WebTestCase
 
         $problem = $this->assertProblem(401);
         self::assertSame('Refresh-токен не передан', $problem['detail']);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function assertProblem(int $status): array
-    {
-        self::assertResponseStatusCodeSame($status);
-        self::assertResponseHeaderSame('Content-Type', 'application/problem+json');
-
-        $problem = $this->json();
-        self::assertSame('about:blank', $problem['type']);
-        self::assertSame($status, $problem['status']);
-        self::assertIsString($problem['title']);
-        self::assertNotSame('', $problem['title']);
-        self::assertIsString($problem['detail']);
-
-        return $problem;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function json(): array
-    {
-        return json_decode((string) $this->client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
     }
 }

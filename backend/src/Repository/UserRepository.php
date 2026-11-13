@@ -13,9 +13,6 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 
 /**
- * Также служит загрузчиком пользователей для entity-провайдера Security (security.yaml,
- * `app_user_provider`): поиск по email без учёта регистра.
- *
  * @extends ServiceEntityRepository<User>
  */
 class UserRepository extends ServiceEntityRepository implements UserLoaderInterface, PasswordUpgraderInterface
@@ -30,19 +27,11 @@ class UserRepository extends ServiceEntityRepository implements UserLoaderInterf
         return $this->findOneBy(['email' => User::normalizeEmail($email)]);
     }
 
-    public function emailExists(string $email): bool
-    {
-        return null !== $this->findOneByEmail($email);
-    }
-
     public function loadUserByIdentifier(string $identifier): ?User
     {
         return $this->findOneByEmail($identifier);
     }
 
-    /**
-     * Перехеширование пароля при входе, если параметры хешера изменились.
-     */
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
         if (!$user instanceof User) {

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controller\Children;
 
+use App\Controller\ApiController;
 use App\Dto\Children\ChildView;
 use App\Dto\Children\CreateChildRequest;
 use App\Dto\Children\UpdateChildRequest;
 use App\Entity\User;
 use App\Service\Children\ChildService;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,11 +17,8 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
-/**
- * Дети текущего пользователя. Доступ — любой аутентифицированный (access_control `^/api`).
- */
 #[Route('/api/me/children', name: 'api_me_children_')]
-final class ChildrenController extends AbstractController
+final class ChildrenController extends ApiController
 {
     public function __construct(
         private readonly ChildService $children,
@@ -49,9 +46,8 @@ final class ChildrenController extends AbstractController
         #[MapRequestPayload] UpdateChildRequest $payload,
         Request $request,
     ): JsonResponse {
-        // null в DTO не отличает «поле не передано» от «стереть»; для фамилии это важно
-        $lastNameProvided = $request->getPayload()->has('lastName');
-        $child = $this->children->update($user, $id, $payload, $lastNameProvided);
+        // null в DTO не отличает «поле не передано» от «стереть фамилию»
+        $child = $this->children->update($user, $id, $payload, $request->getPayload()->has('lastName'));
 
         return $this->json(ChildView::fromEntity($child));
     }

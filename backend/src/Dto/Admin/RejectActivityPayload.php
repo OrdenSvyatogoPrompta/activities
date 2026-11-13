@@ -6,10 +6,6 @@ namespace App\Dto\Admin;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Тело `POST /api/admin/activities/{id}/reject`: `{ comment }` — причина отклонения,
- * её увидит автор активности.
- */
 final readonly class RejectActivityPayload
 {
     public function __construct(

@@ -6,9 +6,6 @@ namespace App\Dto\Activity;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Тело `POST /api/enrollments/{id}/reject`: `{ reason? }`.
- */
 final readonly class RejectEnrollmentRequest
 {
     public function __construct(

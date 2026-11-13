@@ -13,8 +13,7 @@ class Kernel extends BaseKernel
 
     public function boot(): void
     {
-        // Таймзона приложения (раздел 2 docs/backend-requirements.md) — одна для HTTP, консоли
-        // и тестов, не зависит от date.timezone в php.ini образа
+        // Не зависит от date.timezone в php.ini образа
         date_default_timezone_set($_SERVER['APP_TIMEZONE'] ?? $_ENV['APP_TIMEZONE'] ?? self::DEFAULT_TIMEZONE);
 
         parent::boot();

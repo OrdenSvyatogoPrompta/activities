@@ -65,7 +65,7 @@ final class DomainModelTest extends TestCase
         $club->addBranch($first)->addBranch($second);
 
         self::assertSame([DayOfWeek::Monday, DayOfWeek::Wednesday, DayOfWeek::Saturday], $club->getDays());
-        self::assertSame($first, $club->getFirstBranch());
+        self::assertSame(0, $first->getPosition());
         self::assertSame(1, $second->getPosition());
         self::assertNull($club->getSingleBranch());
         self::assertSame($second, $club->findBranch((string) $second->getId()));
@@ -104,8 +104,7 @@ final class DomainModelTest extends TestCase
 
         self::assertSame(EnrollmentStatus::Pending, $enrollment->getStatus());
         self::assertSame('pending', $enrollment->getMarking());
-        self::assertTrue($enrollment->isActive());
-        self::assertTrue($enrollment->isForSelf());
+        self::assertNull($enrollment->getChild());
         self::assertTrue($enrollment->canBeModeratedBy($owner));
         self::assertTrue($enrollment->canBeModeratedBy($admin));
         self::assertFalse($enrollment->canBeModeratedBy($author));
@@ -114,7 +113,6 @@ final class DomainModelTest extends TestCase
 
         $enrollment->setMarking('cancelled');
         self::assertSame(EnrollmentStatus::Cancelled, $enrollment->getStatus());
-        self::assertFalse($enrollment->isActive());
     }
 
     public function testOwnerlessClubIsModeratedOnlyByAdmin(): void

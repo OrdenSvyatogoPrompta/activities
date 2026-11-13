@@ -27,8 +27,7 @@ class EnrollmentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Активная (pending|confirmed) заявка участника в кружок: пользователь «для себя»
-     * (child = null) или конкретный ребёнок. Есть — значит новая заявка даёт 409.
+     * Участник — сам пользователь (child = null) или его ребёнок.
      */
     public function findActiveForParticipant(User $user, Club $club, ?Child $child): ?Enrollment
     {
@@ -50,9 +49,6 @@ class EnrollmentRepository extends ServiceEntityRepository
         return $qb->getQuery()->getOneOrNullResult();
     }
 
-    /**
-     * Есть ли у ребёнка активные заявки (тогда удалять его нельзя → 409).
-     */
     public function hasActiveForChild(Child $child): bool
     {
         return (int) $this->createQueryBuilder('e')
@@ -65,9 +61,6 @@ class EnrollmentRepository extends ServiceEntityRepository
             ->getSingleScalarResult() > 0;
     }
 
-    /**
-     * Число активных заявок пользователя (счётчик `stats.enrollments`).
-     */
     public function countActiveByUser(User $user): int
     {
         return (int) $this->createQueryBuilder('e')
@@ -81,8 +74,6 @@ class EnrollmentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Заявки пользователя, новые первыми, с кружком, филиалом, слотами и ребёнком.
-     *
      * @param list<EnrollmentStatus>|null $statuses null — все, кроме cancelled
      *
      * @return list<Enrollment>
@@ -99,9 +90,6 @@ class EnrollmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * Заявка по id со связями (для cancel/confirm/reject); некорректный id → null.
-     */
     public function findOneWithDetails(Uuid|string $id): ?Enrollment
     {
         $uuid = Uuids::parse($id);
@@ -117,8 +105,7 @@ class EnrollmentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Входящие заявки в кружки (для активностей организатора), кроме cancelled,
-     * по дате подачи. Один запрос на все кружки — без N+1.
+     * Кроме cancelled, одним запросом на все кружки.
      *
      * @param list<Club> $clubs
      *
@@ -141,20 +128,15 @@ class EnrollmentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Список заявок для администратора, старые первыми.
-     *
-     * @param bool $ownerlessOnly только заявки в кружки без владельца (их подтверждает админ)
-     *
      * @return list<Enrollment>
      */
-    public function findForAdmin(?EnrollmentStatus $status = EnrollmentStatus::Pending, bool $ownerlessOnly = false): array
+    public function findForAdmin(EnrollmentStatus $status, bool $ownerlessOnly): array
     {
         $qb = $this->createDetailedQueryBuilder()
+            ->andWhere('e.status = :status')
+            ->setParameter('status', $status->value)
             ->addOrderBy('e.createdAt', 'ASC');
 
-        if (null !== $status) {
-            $qb->andWhere('e.status = :status')->setParameter('status', $status->value);
-        }
         if ($ownerlessOnly) {
             $qb->andWhere('c.owner IS NULL');
         }
@@ -162,9 +144,6 @@ class EnrollmentRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
-    /**
-     * Заявка + автор, кружок, филиал со слотами, ребёнок — всё, что нужно для ответа API.
-     */
     private function createDetailedQueryBuilder(): QueryBuilder
     {
         return $this->createQueryBuilder('e')
@@ -194,6 +173,6 @@ class EnrollmentRepository extends ServiceEntityRepository
      */
     private static function values(array $statuses): array
     {
-        return array_map(static fn (EnrollmentStatus $status): string => $status->value, $statuses);
+        return array_column($statuses, 'value');
     }
 }

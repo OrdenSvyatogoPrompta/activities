@@ -12,11 +12,7 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Заявка на запись в кружок: пользователь записывает себя (child = null) или своего ребёнка.
- *
- * Статус меняется только через workflow `enrollment` (state machine, config/packages/workflow.yaml):
- * confirm: pending → confirmed, reject: pending → rejected, cancel: pending|confirmed → cancelled.
- * Workflow читает и пишет статус через getMarking()/setMarking().
+ * Статус меняется только через workflow `enrollment` (config/packages/workflow.yaml).
  */
 #[ORM\Entity(repositoryClass: EnrollmentRepository::class)]
 #[ORM\Table(name: 'enrollment')]
@@ -27,7 +23,6 @@ class Enrollment
     #[ORM\Column(type: UuidType::NAME)]
     private Uuid $id;
 
-    /** Автор заявки. */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private User $user;
@@ -36,7 +31,7 @@ class Enrollment
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Club $club;
 
-    /** Филиал; при создании заявки всегда заполнен (единственный филиал подставляет сервер). */
+    /** null, только если филиал удалён после подачи заявки. */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Branch $branch;
@@ -52,7 +47,6 @@ class Enrollment
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $rejectReason = null;
 
-    /** Момент подачи; в API — дата `enrolledAt`. */
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -60,12 +54,7 @@ class Enrollment
     private \DateTimeImmutable $statusChangedAt;
 
     /**
-     * Правила (дубль активной заявки → 409, неопубликованный кружок → 404) проверяет сервис
-     * до создания; здесь — только инварианты связей.
-     *
-     * @param \DateTimeImmutable|null $createdAt момент подачи (для фикстур), по умолчанию — сейчас
-     *
-     * @throws \InvalidArgumentException если филиал не из этого кружка или ребёнок не автора
+     * @param \DateTimeImmutable|null $createdAt для фикстур
      */
     public function __construct(User $user, Club $club, ?Branch $branch, ?Child $child = null, ?\DateTimeImmutable $createdAt = null)
     {
@@ -115,33 +104,19 @@ class Enrollment
         return $this->child;
     }
 
-    public function isForSelf(): bool
-    {
-        return null === $this->child;
-    }
-
     public function getStatus(): EnrollmentStatus
     {
         return $this->status;
     }
 
-    public function isActive(): bool
-    {
-        return $this->status->isActive();
-    }
-
     /**
-     * Может ли пользователь подтверждать/отклонять заявку (правило D6): владелец кружка
-     * или администратор. Заявки в кружки без владельца — только администратор.
+     * Заявки в кружки без владельца модерирует только администратор.
      */
     public function canBeModeratedBy(User $user): bool
     {
         return $user->isAdmin() || $this->club->isOwnedBy($user);
     }
 
-    /**
-     * Отменять заявку может только её автор.
-     */
     public function canBeCancelledBy(User $user): bool
     {
         return $this->isAuthoredBy($user);
@@ -152,9 +127,6 @@ class Enrollment
         return $this->rejectReason;
     }
 
-    /**
-     * Причина отклонения. Задавать после успешного перехода `reject`.
-     */
     public function setRejectReason(?string $rejectReason): static
     {
         $rejectReason = null === $rejectReason ? null : trim($rejectReason);
@@ -168,13 +140,8 @@ class Enrollment
         return $this->createdAt;
     }
 
-    public function getStatusChangedAt(): \DateTimeImmutable
-    {
-        return $this->statusChangedAt;
-    }
-
     /**
-     * @internal для marking store workflow `enrollment`; в коде используйте getStatus()
+     * @internal marking store workflow
      */
     public function getMarking(): string
     {
@@ -182,8 +149,7 @@ class Enrollment
     }
 
     /**
-     * @internal для marking store workflow `enrollment`; менять статус — только через
-     *           $enrollmentStateMachine->apply() (фикстуры — исключение)
+     * @internal marking store workflow
      *
      * @param array<string, mixed> $context
      */

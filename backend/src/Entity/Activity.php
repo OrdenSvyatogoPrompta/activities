@@ -17,8 +17,7 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Активность — заявка организатора на кружок, созданная в ЛК. Проходит модерацию:
- * pending → approved (создаётся Club, владелец = автор) | rejected (с комментарием).
+ * Заявка организатора на кружок: pending → approved (создаётся Club) | rejected.
  */
 #[ORM\Entity(repositoryClass: ActivityRepository::class)]
 #[ORM\Table(name: 'activity')]
@@ -59,7 +58,7 @@ class Activity
     #[ORM\Column(length: 16, enumType: PriceType::class)]
     private PriceType $priceType;
 
-    /** ₽/мес, целое; для free всегда 0. */
+    /** ₽/мес; для free всегда 0. */
     #[ORM\Column]
     private int $priceAmount;
 
@@ -70,7 +69,6 @@ class Activity
     #[ORM\Column(length: 16, enumType: ActivityStatus::class)]
     private ActivityStatus $status = ActivityStatus::Pending;
 
-    /** Обязателен при rejected. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $moderationComment = null;
 
@@ -81,7 +79,6 @@ class Activity
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $moderatedBy = null;
 
-    /** Кружок, созданный при одобрении (обратная сторона Club::$sourceActivity). */
     #[ORM\OneToOne(targetEntity: Club::class, mappedBy: 'sourceActivity')]
     private ?Club $club = null;
 
@@ -137,11 +134,6 @@ class Activity
     public function getOwner(): User
     {
         return $this->owner;
-    }
-
-    public function isOwnedBy(User $user): bool
-    {
-        return $this->owner->equals($user);
     }
 
     public function getName(): string
@@ -228,8 +220,6 @@ class Activity
     }
 
     /**
-     * Филиалы в порядке position.
-     *
      * @return Collection<int, ActivityBranch>
      */
     public function getBranches(): Collection
@@ -252,12 +242,6 @@ class Activity
         return $this->createdAt;
     }
 
-    /**
-     * Одобрение: связывает активность с созданным из неё кружком.
-     * Кружок должен быть создан с sourceActivity = эта активность.
-     *
-     * @throws \LogicException если активность уже промодерирована (→ 409) или кружок не из неё
-     */
     public function approve(Club $club, User $moderator): void
     {
         $this->assertPending();
@@ -271,10 +255,6 @@ class Activity
         $this->markModerated($moderator);
     }
 
-    /**
-     * @throws \LogicException          если активность уже промодерирована (→ 409)
-     * @throws \InvalidArgumentException если комментарий пустой
-     */
     public function reject(string $comment, User $moderator): void
     {
         $this->assertPending();

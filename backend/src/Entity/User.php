@@ -14,10 +14,6 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Пользователь. Один аккаунт — и «родитель» (дети, заявки), и «организатор» (активности, кружки).
- * Идентификатор для входа и в JWT — email (в нижнем регистре).
- */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
 #[UniqueEntity(fields: ['email'], message: 'Email уже занят')]
@@ -36,7 +32,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Length(max: 180, maxMessage: 'Email не длиннее {{ limit }} символов')]
     private string $email;
 
-    /** Хеш пароля (хешер `auto`, security.yaml). */
     #[ORM\Column]
     private string $password = '';
 
@@ -46,7 +41,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private string $name;
 
     /**
-     * Роли сверх ROLE_USER (он добавляется всегда в getRoles()).
+     * Без ROLE_USER — его добавляет getRoles().
      *
      * @var list<string>
      */
@@ -64,9 +59,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->createdAt = new \DateTimeImmutable();
     }
 
-    /**
-     * Нормализация email для хранения и поиска: обрезка пробелов и нижний регистр.
-     */
     public static function normalizeEmail(string $email): string
     {
         return mb_strtolower(trim($email));
@@ -80,13 +72,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEmail(): string
     {
         return $this->email;
-    }
-
-    public function setEmail(string $email): static
-    {
-        $this->email = self::normalizeEmail($email);
-
-        return $this;
     }
 
     /**
@@ -104,9 +89,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->password;
     }
 
-    /**
-     * @param string $hashedPassword уже захешированный пароль (UserPasswordHasherInterface)
-     */
     public function setPassword(string $hashedPassword): static
     {
         $this->password = $hashedPassword;
@@ -142,15 +124,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->roles = array_values(array_unique(array_diff($roles, [self::ROLE_USER])));
 
         return $this;
-    }
-
-    /**
-     * Секретов в открытом виде сущность не хранит. Метод удалён из UserInterface в Symfony 8
-     * и оставлен пустым на случай вызова сторонним кодом.
-     */
-    #[\Deprecated]
-    public function eraseCredentials(): void
-    {
     }
 
     public function isAdmin(): bool

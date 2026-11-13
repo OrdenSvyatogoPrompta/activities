@@ -4,14 +4,12 @@ gesdinet_jwt_refresh_token:
     # 30 дней
     ttl: 2592000
 
-    # Ротация: каждый refresh выдаёт новый refresh-токен, использованный удаляется
+    # Ротация: использованный refresh-токен удаляется
     single_use: true
 
-    # Имя cookie с refresh-токеном
     token_parameter_name: refresh_token
 
-    # Refresh-токен только в HttpOnly cookie, в теле ответа его нет.
-    # Path=/api/auth: браузер отправляет cookie только на refresh и logout.
+    # Path=/api/auth: cookie уходит только на refresh и logout
     cookie:
         enabled: true
         http_only: true

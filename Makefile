@@ -28,8 +28,7 @@ stop:
 
 # ── Бэкенд: пакеты и утилиты ───────────────────────────────────────────
 
-# Разовая установка пакетов из docs/backend-requirements.md (группа A).
-# Flex-рецепты сами создадут конфиги; результат нужно закоммитить.
+# Разовая установка пакетов бэкенда: Flex-рецепты создают конфиги, результат коммитится
 backend-deps:
 	$(BACKEND_RUN) composer require \
 		symfony/orm-pack symfony/serializer-pack symfony/validator symfony/security-bundle \

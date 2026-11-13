@@ -4,28 +4,25 @@ declare(strict_types=1);
 
 namespace App\Controller\Activity;
 
+use App\Controller\ApiController;
 use App\Dto\Activity\RejectEnrollmentRequest;
+use App\Dto\Enrollment\EnrollmentResponse;
 use App\Entity\Enrollment;
+use App\Repository\EnrollmentRepository;
 use App\Security\Voter\EnrollmentVoter;
 use App\Service\Activity\EnrollmentModerationService;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Service\Formatter\ScheduleFormatter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Подтверждение и отклонение входящих заявок (раздел 4, «Группа G»): владелец кружка,
- * для кружков без владельца — только ROLE_ADMIN (админ может любые).
- *
- * Ошибки: 404 — заявки нет, 403 — нет прав, 409 — недопустимый переход статуса.
- */
 #[Route('/api/enrollments/{id}', name: 'api_enrollments_')]
-final class EnrollmentModerationController extends AbstractController
+final class EnrollmentModerationController extends ApiController
 {
-    private const array JSON_CONTEXT = ['json_encode_options' => JsonResponse::DEFAULT_ENCODING_OPTIONS | \JSON_UNESCAPED_UNICODE];
-
     public function __construct(
+        private readonly EnrollmentRepository $enrollments,
         private readonly EnrollmentModerationService $moderation,
+        private readonly ScheduleFormatter $scheduleFormatter,
     ) {
     }
 
@@ -33,8 +30,9 @@ final class EnrollmentModerationController extends AbstractController
     public function confirm(string $id): JsonResponse
     {
         $enrollment = $this->findModeratable($id);
+        $this->moderation->confirm($enrollment);
 
-        return $this->json($this->moderation->confirm($enrollment), context: self::JSON_CONTEXT);
+        return $this->json(EnrollmentResponse::fromEntity($enrollment, $this->scheduleFormatter));
     }
 
     #[Route('/reject', name: 'reject', methods: ['POST'])]
@@ -43,19 +41,23 @@ final class EnrollmentModerationController extends AbstractController
         #[MapRequestPayload] ?RejectEnrollmentRequest $request = null,
     ): JsonResponse {
         $enrollment = $this->findModeratable($id);
+        $this->moderation->reject($enrollment, $request?->reason);
 
-        return $this->json($this->moderation->reject($enrollment, $request?->reason), context: self::JSON_CONTEXT);
+        return $this->json(EnrollmentResponse::fromEntity($enrollment, $this->scheduleFormatter));
     }
 
+    /**
+     * Права проверяются до перехода, чтобы «нет прав» (403) было важнее недопустимого статуса (409).
+     */
     private function findModeratable(string $id): Enrollment
     {
-        $enrollment = $this->moderation->find($id)
+        $enrollment = $this->enrollments->findOneWithDetails($id)
             ?? throw $this->createNotFoundException('Заявка не найдена');
 
         $this->denyAccessUnlessGranted(
             EnrollmentVoter::MODERATE,
             $enrollment,
-            'Подтверждать и отклонять заявку может только владелец кружка или администратор',
+            EnrollmentVoter::DENIED_MESSAGES[EnrollmentVoter::MODERATE],
         );
 
         return $enrollment;

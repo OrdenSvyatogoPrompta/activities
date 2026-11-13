@@ -5,18 +5,15 @@ declare(strict_types=1);
 namespace App\Dto\Catalog;
 
 /**
- * Кружок каталога в API (`Club` из models/club.model.ts).
- *
- * `id` — slug. `address`, `phone`, `schedule` верхнего уровня — данные первого филиала
- * (для совместимости с моками), `branches` возвращается всегда.
+ * `address`, `phone`, `schedule` верхнего уровня — первого филиала: так их читает фронт.
  */
 final readonly class ClubView
 {
     /**
      * @param list<string>     $categories
-     * @param list<string>     $days       объединение дней всех филиалов, Пн…Вс
+     * @param list<string>     $days
      * @param list<string>     $tags
-     * @param list<BranchView> $branches   в порядке position
+     * @param list<BranchView> $branches
      */
     public function __construct(
         public string $id,

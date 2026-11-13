@@ -5,21 +5,16 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Catalog;
 
 use App\Entity\Club;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Functional\ApiTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Каталог (группа D): GET /api/clubs, GET /api/clubs/{slug}.
- *
- * Работает на фикстурах (`make test-db`): 18 кружков из моков фронта + кружок `akvarel`
- * из одобренной активности демо-пользователя. Изменения БД в тестах откатывает DAMA.
+ * Фикстуры: 18 кружков из моков фронта и кружок `akvarel` из одобренной активности.
  */
-final class ClubCatalogTest extends WebTestCase
+final class ClubCatalogTest extends ApiTestCase
 {
-    /** Поля `Club` из frontend/apps/main/src/app/models/club.model.ts, кроме `branches` */
+    /** Поля `Club` фронта, кроме `branches` */
     private const array CLUB_FIELDS = [
         'id', 'name', 'categories', 'emoji', 'color', 'shortDescription', 'fullDescription',
         'age', 'ageMin', 'ageMax', 'days', 'visitType', 'schedule', 'address', 'phone',
@@ -29,13 +24,6 @@ final class ClubCatalogTest extends WebTestCase
     private const array BRANCH_FIELDS = ['id', 'name', 'address', 'phone', 'schedule', 'days', 'slots'];
 
     private const string ORGANIZER_CLUB = 'akvarel';
-
-    private KernelBrowser $client;
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
 
     public function testListReturnsWholePublishedCatalogSortedByName(): void
     {
@@ -91,7 +79,7 @@ final class ClubCatalogTest extends WebTestCase
     /**
      * Снимок: ответы для 18 фикстурных кружков совпадают с моками фронта по полям club.model.ts.
      *
-     * Осознанные отличия от моков (решения группы B и контракта):
+     * Осознанные отличия от моков:
      * - `schedule` верхнего уровня — группы через `\n` (в моках «, » и « / »);
      * - `days` у swimming-dyush включает «Сб» — объединение дней всех филиалов;
      * - у кружков без филиалов в моках API отдаёт один филиал «Основной»;
@@ -282,17 +270,8 @@ final class ClubCatalogTest extends WebTestCase
         self::assertNotSame($etag, $this->client->getResponse()->getEtag());
     }
 
-    private function entityManager(): EntityManagerInterface
-    {
-        $em = self::getContainer()->get('doctrine')->getManager();
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-
-        return $em;
-    }
-
     /**
-     * Мок `CLUBS` из frontend/apps/main/src/app/services/clubs.service.ts (до перехода фронта
-     * на API), ключ — slug.
+     * Моки `CLUBS` фронта до перехода на API, ключ — slug.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -337,13 +316,5 @@ final class ClubCatalogTest extends WebTestCase
         $this->client->request('GET', $url);
 
         return $this->json();
-    }
-
-    /**
-     * @return array<mixed>
-     */
-    private function json(): array
-    {
-        return json_decode((string) $this->client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
     }
 }

@@ -5,36 +5,27 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Enrollment;
 
 use App\DataFixtures\AppFixtures;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\ApiTestCase;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * POST /api/enrollments/{id}/cancel.
- *
  * Фикстуры: заявки Марии — swimming-dyush (confirmed) и gimnastika-voskhod (pending);
  * заявки anna.petrova@ и др. — pending в кружок Марии akvarel (Мария — владелец).
  */
-final class CancelEnrollmentTest extends WebTestCase
+final class CancelEnrollmentTest extends ApiTestCase
 {
-    use EnrollmentApiTestTrait;
-
     private const string MARIA = AppFixtures::DEMO_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
 
     public function testAuthorCancelsPendingEnrollment(): void
     {
         $this->loginAs(self::MARIA);
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         self::assertResponseIsSuccessful();
-        $enrollment = $this->responseJson();
+        $enrollment = $this->json();
         self::assertSame($id, $enrollment['id']);
         self::assertSame('cancelled', $enrollment['status']);
         self::assertSame('gimnastika-voskhod', $enrollment['clubId']);
@@ -46,10 +37,10 @@ final class CancelEnrollmentTest extends WebTestCase
         $this->loginAs(self::MARIA);
         $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('cancelled', $this->responseJson()['status']);
+        self::assertSame('cancelled', $this->json()['status']);
     }
 
     public function testCancellingTwiceReturns409(): void
@@ -57,10 +48,10 @@ final class CancelEnrollmentTest extends WebTestCase
         $this->loginAs(self::MARIA);
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
         self::assertResponseIsSuccessful();
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
         self::assertSame('Нельзя отменить заявку: она отменена', $this->assertProblem(409)['detail']);
     }
 
@@ -70,7 +61,7 @@ final class CancelEnrollmentTest extends WebTestCase
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
         $this->loginAs(self::ANNA);
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         self::assertSame('Заявка не найдена', $this->assertProblem(404)['detail']);
     }
@@ -81,7 +72,7 @@ final class CancelEnrollmentTest extends WebTestCase
         $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
         $this->loginAs(self::MARIA);
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         self::assertSame('Отменить заявку может только её автор', $this->assertProblem(403)['detail']);
     }
@@ -91,7 +82,7 @@ final class CancelEnrollmentTest extends WebTestCase
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
         $this->loginAs(AppFixtures::ADMIN_EMAIL);
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         $this->assertProblem(403);
     }
@@ -100,10 +91,10 @@ final class CancelEnrollmentTest extends WebTestCase
     {
         $this->loginAs(self::MARIA);
 
-        $this->postJson('/api/enrollments/'.Uuid::v7()->toRfc4122().'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.Uuid::v7()->toRfc4122().'/cancel', []);
         $this->assertProblem(404);
 
-        $this->postJson('/api/enrollments/not-a-uuid/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/not-a-uuid/cancel', []);
         $this->assertProblem(404);
     }
 
@@ -111,7 +102,7 @@ final class CancelEnrollmentTest extends WebTestCase
     {
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
 
-        $this->postJson('/api/enrollments/'.$id.'/cancel');
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
         $this->assertProblem(401);
     }

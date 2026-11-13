@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Entity\Enum;
 
-/**
- * Категория кружка. Значения совпадают с `ClubCategory` фронтенда.
- */
 enum Category: string
 {
+    use EnumValues;
+
     case Sport = 'Спорт';
     case Creativity = 'Творчество';
     case Science = 'Наука';
@@ -16,7 +15,7 @@ enum Category: string
     case Dance = 'Танцы';
 
     /**
-     * Цвет кружка, созданного из одобренной активности (раздел 3, «Производные поля»).
+     * Цвет кружка, созданного из одобренной активности.
      */
     public function color(): string
     {

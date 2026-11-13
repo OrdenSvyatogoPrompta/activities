@@ -6,6 +6,8 @@ namespace App\Entity\Enum;
 
 enum VisitType: string
 {
+    use EnumValues;
+
     case Recurring = 'recurring';
     case OneTime = 'oneTime';
     case Both = 'both';

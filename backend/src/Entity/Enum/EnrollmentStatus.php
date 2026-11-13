@@ -5,26 +5,20 @@ declare(strict_types=1);
 namespace App\Entity\Enum;
 
 /**
- * Статус заявки на запись. Значения — места (places) workflow `enrollment`
- * (config/packages/workflow.yaml). Менять статус — только через workflow.
+ * Значения совпадают с местами workflow `enrollment`; статус меняется только через него.
  */
 enum EnrollmentStatus: string
 {
+    use EnumValues;
+
     case Pending = 'pending';
     case Confirmed = 'confirmed';
     case Rejected = 'rejected';
     case Cancelled = 'cancelled';
 
     /**
-     * Активная заявка занимает место участника в кружке: вторую такую же создать нельзя,
-     * ребёнка с активными заявками удалить нельзя.
-     */
-    public function isActive(): bool
-    {
-        return self::Pending === $this || self::Confirmed === $this;
-    }
-
-    /**
+     * Активная заявка занимает место участника: дубль подать нельзя, ребёнка удалить нельзя.
+     *
      * @return list<self>
      */
     public static function active(): array

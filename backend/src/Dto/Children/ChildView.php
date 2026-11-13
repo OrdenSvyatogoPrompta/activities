@@ -6,9 +6,6 @@ namespace App\Dto\Children;
 
 use App\Entity\Child;
 
-/**
- * Ребёнок в ответах API: `{ id, firstName, lastName, age, gender }`.
- */
 final readonly class ChildView
 {
     public function __construct(

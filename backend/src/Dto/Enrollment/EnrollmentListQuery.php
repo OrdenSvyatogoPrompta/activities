@@ -9,10 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
- * Query-параметры `GET /api/me/enrollments`.
- *
- * `status` — один статус или несколько через запятую: `?status=pending`,
- * `?status=pending,confirmed,rejected,cancelled` (все). Не задан — все, кроме `cancelled`.
+ * `?status=pending,confirmed` — один или несколько статусов через запятую.
  */
 final readonly class EnrollmentListQuery
 {
@@ -22,9 +19,7 @@ final readonly class EnrollmentListQuery
     }
 
     /**
-     * Запрошенные статусы; null — значение по умолчанию (все, кроме cancelled).
-     *
-     * @return list<EnrollmentStatus>|null
+     * @return list<EnrollmentStatus>|null null — все, кроме cancelled
      */
     public function statuses(): ?array
     {
@@ -43,10 +38,7 @@ final readonly class EnrollmentListQuery
             if (null === EnrollmentStatus::tryFrom($value)) {
                 $context->buildViolation('Неизвестный статус «{{ value }}». Допустимые: {{ choices }}')
                     ->setParameter('{{ value }}', $value)
-                    ->setParameter('{{ choices }}', implode(', ', array_map(
-                        static fn (EnrollmentStatus $status): string => $status->value,
-                        EnrollmentStatus::cases(),
-                    )))
+                    ->setParameter('{{ choices }}', implode(', ', EnrollmentStatus::values()))
                     ->atPath('status')
                     ->addViolation();
             }

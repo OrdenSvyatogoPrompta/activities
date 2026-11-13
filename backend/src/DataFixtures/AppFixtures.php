@@ -24,14 +24,7 @@ use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Данные моков фронтенда для dev/test (решение D7):
- * - 18 сидовых кружков каталога без владельца (CatalogData);
- * - демо-пользователь с детьми и заявками (MOCK_USER из auth.service.ts);
- * - одобренная активность «Акварель» демо-пользователя со своим кружком и 4 входящими заявками
- *   от отдельных пользователей; активность на модерации;
- * - администратор.
- *
- * Пароль всех пользователей, кроме админа, — DEMO_PASSWORD.
+ * Каталог, демо-пользователь с детьми, заявками и активностями, администратор.
  */
 final class AppFixtures extends Fixture
 {
@@ -40,15 +33,7 @@ final class AppFixtures extends Fixture
     public const string ADMIN_EMAIL = 'admin@example.com';
     public const string ADMIN_PASSWORD = 'admin';
 
-    /** Название активности на модерации у демо-пользователя. */
     public const string PENDING_ACTIVITY_NAME = 'Настольные игры';
-
-    /** Ссылки (getReference) для тестов других групп. */
-    public const string REF_DEMO_USER = 'user-demo';
-    public const string REF_ADMIN = 'user-admin';
-    public const string REF_ORGANIZER_CLUB = 'club-organizer';
-    public const string REF_APPROVED_ACTIVITY = 'activity-approved';
-    public const string REF_PENDING_ACTIVITY = 'activity-pending';
 
     /** @var array<string, Club> */
     private array $clubs = [];
@@ -64,10 +49,8 @@ final class AppFixtures extends Fixture
         $this->loadCatalog($manager);
 
         $admin = $this->user($manager, self::ADMIN_EMAIL, 'Администратор', self::ADMIN_PASSWORD)->promoteToAdmin();
-        $this->addReference(self::REF_ADMIN, $admin);
 
         $maria = $this->user($manager, self::DEMO_EMAIL, 'Иванова Мария');
-        $this->addReference(self::REF_DEMO_USER, $maria);
         $this->loadDemoFamily($manager, $maria);
         $this->loadOrganizerActivities($manager, $maria, $admin);
 
@@ -108,9 +91,6 @@ final class AppFixtures extends Fixture
         }
     }
 
-    /**
-     * Дети и заявки демо-пользователя (MOCK_USER.children / enrollments).
-     */
     private function loadDemoFamily(ObjectManager $manager, User $maria): void
     {
         $artem = new Child($maria, 'Артём', 'Иванов', 8, Gender::Male);
@@ -127,8 +107,7 @@ final class AppFixtures extends Fixture
         }
 
         $artemSwimming = new Enrollment($maria, $swimming, $borisenko, $artem, new \DateTimeImmutable('2026-10-15 10:00'));
-        // Фикстуры работают без аутентифицированного пользователя, поэтому статус ставится
-        // напрямую, а не через workflow (его guard требует владельца кружка или админа)
+        // Мимо workflow: его guard без аутентифицированного пользователя блокирует переходы
         $artemSwimming->setMarking(EnrollmentStatus::Confirmed->value);
         $manager->persist($artemSwimming);
 
@@ -136,9 +115,6 @@ final class AppFixtures extends Fixture
         $manager->persist(new Enrollment($maria, $gymnastics, $gymnastics->getSingleBranch(), $sonya, new \DateTimeImmutable('2026-11-01 10:00')));
     }
 
-    /**
-     * Активности демо-пользователя как организатора (MOCK_USER.activities) и активность на модерации.
-     */
     private function loadOrganizerActivities(ObjectManager $manager, User $maria, User $admin): void
     {
         $description = 'Художественная студия для детей. Занятия акварелью, гуашью, пастелью. Небольшие группы — индивидуальный подход.';
@@ -162,7 +138,7 @@ final class AppFixtures extends Fixture
         $activity->addBranch($main)->addBranch($snegovaya);
         $manager->persist($activity);
 
-        // Кружок из одобренной активности — так, как его создаёт модерация (группа H)
+        // Так же, как кружок создаёт ActivityModerator::approve()
         $club = new Club(
             slug: $this->slugGenerator->generate($activity->getName(), fn (string $slug): bool => isset($this->clubs[$slug])),
             name: $activity->getName(),
@@ -189,10 +165,7 @@ final class AppFixtures extends Fixture
         $activity->approve($club, $admin);
         $manager->persist($club);
         $this->clubs[$club->getSlug()] = $club;
-        $this->addReference(self::REF_ORGANIZER_CLUB, $club);
-        $this->addReference(self::REF_APPROVED_ACTIVITY, $activity);
 
-        // Входящие заявки (MOCK_USER.activities[0].enrollments) — от отдельных пользователей
         $incoming = [
             ['anna.petrova@example.com', 'Петрова Анна', ['Маша', 'Петрова', 7, Gender::Female], 'Основной', '2026-10-20'],
             ['igor.sidorov@example.com', 'Сидоров Игорь', null, 'Основной', '2026-10-22'],
@@ -209,7 +182,6 @@ final class AppFixtures extends Fixture
             $manager->persist(new Enrollment($user, $club, $clubBranches[$branchName], $child, new \DateTimeImmutable($date.' 10:00')));
         }
 
-        // Активность на модерации — для проверки одобрения/отклонения
         $pending = new Activity(
             owner: $maria,
             name: self::PENDING_ACTIVITY_NAME,
@@ -227,7 +199,6 @@ final class AppFixtures extends Fixture
         self::addSlots($pendingBranch, 'Сб', '12:00', '14:00');
         $pending->addBranch($pendingBranch);
         $manager->persist($pending);
-        $this->addReference(self::REF_PENDING_ACTIVITY, $pending);
     }
 
     private function user(ObjectManager $manager, string $email, string $name, string $password = self::DEMO_PASSWORD): User
@@ -247,8 +218,6 @@ final class AppFixtures extends Fixture
     }
 
     /**
-     * «Пн, Ср, Пт» → [DayOfWeek::Monday, …].
-     *
      * @return list<DayOfWeek>
      */
     private static function days(string $days): array

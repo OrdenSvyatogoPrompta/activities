@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Dto\Activity;
 
+use App\Dto\Catalog\ScheduleSlotView;
+
 /**
- * Филиал активности в ответе API (совместим с `ActivityBranch` фронтенда).
- *
- * `days/timeFrom/timeTo` — для совместимости: дни всех слотов и время первого слота;
- * полное расписание — в `slots` и строкой в `schedule`.
+ * `days/timeFrom/timeTo` — упрощённое расписание для фронта: дни всех слотов и время первого.
  */
 final readonly class ActivityBranchResponse
 {
     /**
-     * @param list<string>               $days
-     * @param list<ScheduleSlotResponse> $slots
+     * @param list<string>           $days
+     * @param list<ScheduleSlotView> $slots
      */
     public function __construct(
         public string $id,

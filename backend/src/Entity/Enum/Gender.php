@@ -6,6 +6,8 @@ namespace App\Entity\Enum;
 
 enum Gender: string
 {
+    use EnumValues;
+
     case Male = 'male';
     case Female = 'female';
 }

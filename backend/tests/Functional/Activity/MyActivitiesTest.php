@@ -5,38 +5,27 @@ declare(strict_types=1);
 namespace App\Tests\Functional\Activity;
 
 use App\DataFixtures\AppFixtures;
-use App\Entity\Branch;
-use App\Repository\ClubRepository;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\ApiTestCase;
 
 /**
- * GET/POST /api/me/activities, GET /api/me/activities/{id} (группа G).
- *
  * Данные — AppFixtures: у Марии одобренная «Акварель» (кружок akvarel, филиалы «Основной»
  * и «Снеговая», 4 входящие заявки) и «Настольные игры» на модерации.
  */
-final class MyActivitiesTest extends WebTestCase
+final class MyActivitiesTest extends ApiTestCase
 {
-    use ApiTestTrait;
-
     private const string MARIA = AppFixtures::DEMO_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
 
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
-
     public function testListRequiresAuthentication(): void
     {
-        $this->api(null, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities');
 
         $this->assertProblem(401);
     }
 
     public function testListReturnsOwnActivitiesOfAllStatuses(): void
     {
-        $this->api(self::MARIA, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities', accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         $activities = $this->byName($this->json());
@@ -53,7 +42,7 @@ final class MyActivitiesTest extends WebTestCase
 
     public function testApprovedActivityHasBranchesAndIncomingEnrollments(): void
     {
-        $this->api(self::MARIA, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities', accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         $akvarel = $this->byName($this->json())['Акварель'];
@@ -106,7 +95,7 @@ final class MyActivitiesTest extends WebTestCase
 
     public function testOtherUserDoesNotSeeForeignActivities(): void
     {
-        $this->api(self::ANNA, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities', accessToken: $this->tokenFor(self::ANNA));
 
         self::assertResponseIsSuccessful();
         self::assertSame([], $this->json());
@@ -116,7 +105,7 @@ final class MyActivitiesTest extends WebTestCase
     {
         $id = $this->activityId('Акварель');
 
-        $this->api(self::MARIA, 'GET', '/api/me/activities/'.$id);
+        $this->jsonRequest('GET', '/api/me/activities/'.$id, accessToken: $this->tokenFor(self::MARIA));
 
         self::assertResponseIsSuccessful();
         $activity = $this->json();
@@ -129,23 +118,23 @@ final class MyActivitiesTest extends WebTestCase
     {
         $id = $this->activityId('Акварель');
 
-        $this->api(self::ANNA, 'GET', '/api/me/activities/'.$id);
+        $this->jsonRequest('GET', '/api/me/activities/'.$id, accessToken: $this->tokenFor(self::ANNA));
 
         self::assertSame('Активность не найдена', $this->assertProblem(404)['detail']);
     }
 
     public function testShowUnknownOrMalformedIdReturns404(): void
     {
-        $this->api(self::MARIA, 'GET', '/api/me/activities/0192f000-0000-7000-8000-000000000000');
+        $this->jsonRequest('GET', '/api/me/activities/0192f000-0000-7000-8000-000000000000', accessToken: $this->tokenFor(self::MARIA));
         $this->assertProblem(404);
 
-        $this->api(self::MARIA, 'GET', '/api/me/activities/not-a-uuid');
+        $this->jsonRequest('GET', '/api/me/activities/not-a-uuid', accessToken: $this->tokenFor(self::MARIA));
         $this->assertProblem(404);
     }
 
     public function testCreateActivity(): void
     {
-        $this->api(self::ANNA, 'POST', '/api/me/activities', $this->validPayload());
+        $this->jsonRequest('POST', '/api/me/activities', $this->validPayload(), accessToken: $this->tokenFor(self::ANNA));
 
         self::assertResponseStatusCodeSame(201);
         $activity = $this->json();
@@ -170,7 +159,7 @@ final class MyActivitiesTest extends WebTestCase
         self::assertSame("Пн · 10:00–11:00\nСр · 16:00–17:30", $branch['schedule']);
 
         // Появилась в своём списке и доступна по id
-        $this->api(self::ANNA, 'GET', '/api/me/activities/'.$activity['id']);
+        $this->jsonRequest('GET', '/api/me/activities/'.$activity['id'], accessToken: $this->tokenFor(self::ANNA));
         self::assertResponseIsSuccessful();
         self::assertSame('pending', $this->json()['status']);
     }
@@ -182,7 +171,7 @@ final class MyActivitiesTest extends WebTestCase
         $payload['priceAmount'] = 999;
         unset($payload['emoji'], $payload['tags'], $payload['branches'][0]['name'], $payload['branches'][0]['phone']);
 
-        $this->api(self::ANNA, 'POST', '/api/me/activities', $payload);
+        $this->jsonRequest('POST', '/api/me/activities', $payload, accessToken: $this->tokenFor(self::ANNA));
 
         self::assertResponseStatusCodeSame(201);
         $activity = $this->json();
@@ -207,7 +196,7 @@ final class MyActivitiesTest extends WebTestCase
         $payload['branches'][0]['slots'][1]['day'] = 'Mon';
         $payload['branches'][0]['slots'][1]['timeFrom'] = '25:00';
 
-        $this->api(self::ANNA, 'POST', '/api/me/activities', $payload);
+        $this->jsonRequest('POST', '/api/me/activities', $payload, accessToken: $this->tokenFor(self::ANNA));
 
         $paths = $this->violationPaths();
         foreach ([
@@ -230,7 +219,7 @@ final class MyActivitiesTest extends WebTestCase
         unset($payload['priceAmount'], $payload['description']);
         $payload['branches'][] = ['address' => 'ул. Фонтанная, 2', 'slots' => []];
 
-        $this->api(self::ANNA, 'POST', '/api/me/activities', $payload);
+        $this->jsonRequest('POST', '/api/me/activities', $payload, accessToken: $this->tokenFor(self::ANNA));
 
         $paths = $this->violationPaths();
         self::assertContains('priceAmount', $paths);
@@ -239,14 +228,14 @@ final class MyActivitiesTest extends WebTestCase
 
         $payload = $this->validPayload();
         $payload['branches'] = [];
-        $this->api(self::ANNA, 'POST', '/api/me/activities', $payload);
+        $this->jsonRequest('POST', '/api/me/activities', $payload, accessToken: $this->tokenFor(self::ANNA));
 
         self::assertContains('branches', $this->violationPaths());
     }
 
     public function testCreateWithEmptyBodyReturnsRussianViolations(): void
     {
-        $this->api(self::ANNA, 'POST', '/api/me/activities', []);
+        $this->jsonRequest('POST', '/api/me/activities', [], accessToken: $this->tokenFor(self::ANNA));
 
         $problem = $this->assertProblem(422);
         $messages = array_column($problem['violations'], 'message', 'propertyPath');
@@ -266,7 +255,7 @@ final class MyActivitiesTest extends WebTestCase
 
     public function testCreateRequiresAuthentication(): void
     {
-        $this->api(null, 'POST', '/api/me/activities', $this->validPayload());
+        $this->jsonRequest('POST', '/api/me/activities', $this->validPayload());
 
         $this->assertProblem(401);
     }
@@ -311,7 +300,7 @@ final class MyActivitiesTest extends WebTestCase
 
     private function activityId(string $name): string
     {
-        $this->api(self::MARIA, 'GET', '/api/me/activities');
+        $this->jsonRequest('GET', '/api/me/activities', accessToken: $this->tokenFor(self::MARIA));
         self::assertResponseIsSuccessful();
 
         return $this->byName($this->json())[$name]['id'];
@@ -322,12 +311,8 @@ final class MyActivitiesTest extends WebTestCase
      */
     private function clubBranchIdsByName(string $slug): array
     {
-        $club = static::getContainer()->get(ClubRepository::class)->findOneBySlugWithBranches($slug);
-        self::assertNotNull($club);
-
         $ids = [];
-        foreach ($club->getBranches() as $branch) {
-            \assert($branch instanceof Branch);
+        foreach ($this->club($slug)->getBranches() as $branch) {
             $ids[$branch->getName()] = $branch->getId()->toRfc4122();
         }
 

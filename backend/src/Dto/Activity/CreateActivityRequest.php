@@ -11,10 +11,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
- * Тело `POST /api/me/activities`.
- *
- * Все поля допускают null на уровне типа, чтобы отсутствующее поле давало понятное
- * сообщение валидатора на русском, а не ошибку денормализации.
+ * Поля nullable, чтобы отсутствующее поле давало русское сообщение валидатора,
+ * а не ошибку денормализации.
  */
 final readonly class CreateActivityRequest
 {
@@ -28,10 +26,9 @@ final readonly class CreateActivityRequest
         public ?string $name = null,
 
         #[Assert\NotBlank(message: 'Выберите категорию')]
-        #[Assert\Choice(callback: 'categories', message: 'Допустимые категории: Спорт, Творчество, Наука, Музыка, Танцы')]
+        #[Assert\Choice(callback: [Category::class, 'values'], message: 'Допустимые категории: Спорт, Творчество, Наука, Музыка, Танцы')]
         public ?string $category = null,
 
-        /** По умолчанию 🎯. */
         #[Assert\Length(max: 16, maxMessage: 'Эмодзи — не длиннее {{ limit }} символов')]
         public ?string $emoji = null,
 
@@ -48,14 +45,13 @@ final readonly class CreateActivityRequest
         public ?int $ageMax = null,
 
         #[Assert\NotBlank(message: 'Выберите формат посещения')]
-        #[Assert\Choice(callback: 'visitTypes', message: 'Допустимые форматы: recurring, oneTime, both')]
+        #[Assert\Choice(callback: [VisitType::class, 'values'], message: 'Допустимые форматы: recurring, oneTime, both')]
         public ?string $visitType = null,
 
         #[Assert\NotBlank(message: 'Выберите тип цены')]
-        #[Assert\Choice(callback: 'priceTypes', message: 'Допустимые типы цены: free, pushkin, paid')]
+        #[Assert\Choice(callback: [PriceType::class, 'values'], message: 'Допустимые типы цены: free, pushkin, paid')]
         public ?string $priceType = null,
 
-        /** ₽/мес; для free игнорируется и сохраняется 0. */
         #[Assert\Range(min: 0, max: 1_000_000, notInRangeMessage: 'Стоимость — от {{ min }} до {{ max }} ₽')]
         public ?int $priceAmount = null,
 
@@ -76,30 +72,6 @@ final readonly class CreateActivityRequest
     ) {
     }
 
-    /**
-     * @return list<string>
-     */
-    public static function categories(): array
-    {
-        return array_map(static fn (Category $case): string => $case->value, Category::cases());
-    }
-
-    /**
-     * @return list<string>
-     */
-    public static function visitTypes(): array
-    {
-        return array_map(static fn (VisitType $case): string => $case->value, VisitType::cases());
-    }
-
-    /**
-     * @return list<string>
-     */
-    public static function priceTypes(): array
-    {
-        return array_map(static fn (PriceType $case): string => $case->value, PriceType::cases());
-    }
-
     #[Assert\Callback]
     public function validateRanges(ExecutionContextInterface $context): void
     {
@@ -109,7 +81,6 @@ final readonly class CreateActivityRequest
                 ->addViolation();
         }
 
-        // Для бесплатных цена не нужна (сохраняется 0), для остальных — обязательна
         if (null !== $this->priceType && PriceType::Free->value !== $this->priceType && null === $this->priceAmount) {
             $context->buildViolation('Укажите стоимость')
                 ->atPath('priceAmount')

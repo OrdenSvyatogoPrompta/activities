@@ -12,9 +12,6 @@ use App\Repository\ChildRepository;
 use App\Repository\EnrollmentRepository;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
-/**
- * Собирает представление пользователя для ответов API (`user` в auth-ответах, GET/PATCH /api/me).
- */
 final readonly class UserViewFactory
 {
     public function __construct(
@@ -41,7 +38,7 @@ final readonly class UserViewFactory
     }
 
     /**
-     * Для мест, где ответ собирается массивом без Serializer (ответ lexik при входе).
+     * Для тела ответа lexik, которое собирается массивом.
      *
      * @return array<string, mixed>
      */
