@@ -181,6 +181,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 0 0 1px rgba(104,128,248,.35); }
 
   &__icon {
     width: 48px;
