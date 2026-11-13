@@ -40,7 +40,7 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
 
         <header class="header">
           <span class="header__logo">
-            Activities <span class="header__city">· Владивосток</span>
+            Заодно <span class="header__city">· Владивосток</span>
           </span>
           <div class="header__right">
             <div class="header__search-wrap">

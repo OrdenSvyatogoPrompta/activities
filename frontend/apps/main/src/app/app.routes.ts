@@ -21,12 +21,7 @@ export const routes: Routes = [
     path: 'personal',
     loadComponent: () => import('./personal/personal-dashboard.component').then((m) => m.PersonalDashboardComponent),
   },
-  {
-    path: 'org',
-    loadComponent: () => import('./org/org-dashboard.component').then((m) => m.OrgDashboardComponent),
-  },
-  {
-    path: '**',
-    redirectTo: '',
-  },
+  // /org редиректит в /personal — один аккаунт для всех
+  { path: 'org', redirectTo: 'personal' },
+  { path: '**', redirectTo: '' },
 ];

@@ -40,7 +40,7 @@ import { RouterLink } from '@angular/router';
   template: `
     <div class="page">
       <header class="header">
-        <span class="logo">Activities <span class="city">· Кабинет организации</span></span>
+        <span class="logo">Заодно <span class="city">· Кабинет организации</span></span>
         <a class="back" routerLink="/">← На главную</a>
       </header>
       <div class="content">

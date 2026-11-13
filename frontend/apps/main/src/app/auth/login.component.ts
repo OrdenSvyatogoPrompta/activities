@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
-import { AuthService, UserRole } from '../services/auth.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'act-login',
@@ -15,19 +15,11 @@ import { AuthService, UserRole } from '../services/auth.service';
           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6"/>
         </svg>
-        Activities
+        Заодно
       </a>
 
       <div class="auth-card">
         <h1 class="auth-card__title">Вход</h1>
-        <p class="auth-card__sub">Выберите тип аккаунта</p>
-
-        <div class="role-tabs">
-          <button class="role-tab" [class.role-tab--active]="role() === 'user'"
-            (click)="role.set('user')">Пользователь</button>
-          <button class="role-tab" [class.role-tab--active]="role() === 'org'"
-            (click)="role.set('org')">Организация</button>
-        </div>
 
         <form class="auth-form" (submit)="submit($event)">
           <div class="field">
@@ -49,8 +41,7 @@ import { AuthService, UserRole } from '../services/auth.service';
         </form>
 
         <p class="auth-card__footer">
-          Нет аккаунта?
-          <a routerLink="/auth/register">Зарегистрироваться</a>
+          Нет аккаунта? <a routerLink="/auth/register">Зарегистрироваться</a>
         </p>
       </div>
     </div>
@@ -60,7 +51,6 @@ export class LoginComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  readonly role     = signal<UserRole>('user');
   readonly email    = signal('');
   readonly password = signal('');
   readonly error    = signal('');
@@ -71,7 +61,7 @@ export class LoginComponent {
       this.error.set('Заполните все поля');
       return;
     }
-    this.authService.login(this.email(), this.password(), this.role());
-    this.authService.redirectAfterLogin(this.role());
+    this.authService.login(this.email(), this.password());
+    this.router.navigate(['/personal']);
   }
 }
