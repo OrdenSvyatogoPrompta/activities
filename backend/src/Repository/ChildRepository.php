@@ -21,8 +21,6 @@ class ChildRepository extends ServiceEntityRepository
     }
 
     /**
-     * Дети пользователя в порядке добавления.
-     *
      * @return list<Child>
      */
     public function findByParent(User $parent): array
@@ -30,9 +28,6 @@ class ChildRepository extends ServiceEntityRepository
         return $this->findBy(['parent' => $parent], ['createdAt' => 'ASC', 'id' => 'ASC']);
     }
 
-    /**
-     * Ребёнок по id, только если он принадлежит пользователю (чужой/некорректный id → null → 404/422).
-     */
     public function findOneOwnedBy(Uuid|string $id, User $parent): ?Child
     {
         $uuid = Uuids::parse($id);

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Entity\Enum;
 
 /**
- * День недели. Значения совпадают с `DayOfWeek` фронтенда, порядок объявления — Пн…Вс.
+ * Порядок объявления — Пн…Вс, на нём держится сортировка.
  */
 enum DayOfWeek: string
 {
+    use EnumValues;
+
     case Monday = 'Пн';
     case Tuesday = 'Вт';
     case Wednesday = 'Ср';
@@ -18,7 +20,7 @@ enum DayOfWeek: string
     case Sunday = 'Вс';
 
     /**
-     * Номер дня, 1 (Пн) … 7 (Вс), как ISO-8601 (`date('N')`).
+     * 1 (Пн) … 7 (Вс), как `date('N')`.
      */
     public function isoNumber(): int
     {

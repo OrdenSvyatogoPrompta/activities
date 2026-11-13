@@ -9,6 +9,7 @@ use App\Entity\Enum\DayOfWeek;
 use App\Entity\Enum\PriceType;
 use App\Entity\Enum\VisitType;
 use App\Repository\ClubRepository;
+use App\Repository\Uuids;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -18,11 +19,7 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Кружок каталога. В API его `id` — slug (фронт строит URL `/club/:id`).
- *
- * Сидовые кружки (фикстуры) без владельца; кружок из одобренной активности принадлежит
- * её автору и ссылается на неё (sourceActivity). Производные поля API (`price`, `age`,
- * `schedule`, `days`) не хранятся — их считают форматтеры App\Service\Formatter\*.
+ * В API `id` кружка — slug.
  */
 #[ORM\Entity(repositoryClass: ClubRepository::class)]
 #[ORM\Table(name: 'club')]
@@ -40,18 +37,13 @@ class Club
     #[ORM\Column(length: 100)]
     private string $name;
 
-    /**
-     * Значения Category (строки), минимум одно.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> значения Category */
     #[ORM\Column(type: Types::JSON)]
     private array $categories;
 
     #[ORM\Column(length: 16)]
     private string $emoji;
 
-    /** `#rrggbb` */
     #[ORM\Column(length: 7)]
     private string $color;
 
@@ -73,7 +65,7 @@ class Club
     #[ORM\Column(length: 16, enumType: PriceType::class)]
     private PriceType $priceType;
 
-    /** ₽/мес, целое; для free всегда 0. */
+    /** ₽/мес; для free всегда 0. */
     #[ORM\Column]
     private int $priceAmount;
 
@@ -84,12 +76,11 @@ class Club
     #[ORM\Column]
     private bool $isPublished;
 
-    /** Владелец (автор одобренной активности); null — сидовый кружок, заявки подтверждает админ. */
+    /** null — кружок без владельца, заявки в него подтверждает администратор. */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $owner;
 
-    /** Активность, из которой создан кружок (владеющая сторона связи 1:1). */
     #[ORM\OneToOne(inversedBy: 'club')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Activity $sourceActivity;
@@ -106,7 +97,7 @@ class Club
     private \DateTimeImmutable $updatedAt;
 
     /**
-     * @param list<Category> $categories минимум одна
+     * @param list<Category> $categories
      * @param list<string>   $tags
      */
     public function __construct(
@@ -186,7 +177,7 @@ class Club
     /**
      * @param list<Category> $categories
      */
-    public function setCategories(array $categories): static
+    private function setCategories(array $categories): static
     {
         if ([] === $categories) {
             throw new \InvalidArgumentException('У кружка должна быть хотя бы одна категория');
@@ -201,23 +192,9 @@ class Club
         return $this->emoji;
     }
 
-    public function setEmoji(string $emoji): static
-    {
-        $this->emoji = $emoji;
-
-        return $this;
-    }
-
     public function getColor(): string
     {
         return $this->color;
-    }
-
-    public function setColor(string $color): static
-    {
-        $this->color = $color;
-
-        return $this;
     }
 
     public function getShortDescription(): string
@@ -225,23 +202,9 @@ class Club
         return $this->shortDescription;
     }
 
-    public function setShortDescription(string $shortDescription): static
-    {
-        $this->shortDescription = $shortDescription;
-
-        return $this;
-    }
-
     public function getFullDescription(): string
     {
         return $this->fullDescription;
-    }
-
-    public function setFullDescription(string $fullDescription): static
-    {
-        $this->fullDescription = $fullDescription;
-
-        return $this;
     }
 
     public function getAgeMin(): int
@@ -254,7 +217,7 @@ class Club
         return $this->ageMax;
     }
 
-    public function setAgeRange(int $ageMin, int $ageMax): static
+    private function setAgeRange(int $ageMin, int $ageMax): static
     {
         if ($ageMin > $ageMax) {
             throw new \InvalidArgumentException('Минимальный возраст больше максимального');
@@ -270,13 +233,6 @@ class Club
         return $this->visitType;
     }
 
-    public function setVisitType(VisitType $visitType): static
-    {
-        $this->visitType = $visitType;
-
-        return $this;
-    }
-
     public function getPriceType(): PriceType
     {
         return $this->priceType;
@@ -287,9 +243,6 @@ class Club
         return $this->priceAmount;
     }
 
-    /**
-     * Для free сумма принудительно 0.
-     */
     public function setPrice(PriceType $priceType, int $priceAmount): static
     {
         $this->priceType = $priceType;
@@ -309,7 +262,7 @@ class Club
     /**
      * @param list<string> $tags
      */
-    public function setTags(array $tags): static
+    private function setTags(array $tags): static
     {
         $this->tags = array_values($tags);
 
@@ -344,8 +297,6 @@ class Club
     }
 
     /**
-     * Филиалы в порядке position.
-     *
      * @return Collection<int, Branch>
      */
     public function getBranches(): Collection
@@ -354,43 +305,18 @@ class Club
     }
 
     /**
-     * Первый филиал — его address/phone/schedule отдаются на верхнем уровне Club в API.
-     */
-    public function getFirstBranch(): ?Branch
-    {
-        $first = null;
-        foreach ($this->branches as $branch) {
-            if (null === $first || $branch->getPosition() < $first->getPosition()) {
-                $first = $branch;
-            }
-        }
-
-        return $first;
-    }
-
-    /**
-     * Единственный филиал кружка или null, если филиалов несколько (тогда в заявке
-     * филиал обязателен).
+     * null, если филиалов несколько.
      */
     public function getSingleBranch(): ?Branch
     {
         return 1 === $this->branches->count() ? $this->branches->first() : null;
     }
 
-    /**
-     * Филиал этого кружка по id; null — если id некорректен или филиал чужой.
-     */
-    public function findBranch(Uuid|string $id): ?Branch
+    public function findBranch(string $id): ?Branch
     {
-        if (\is_string($id)) {
-            if (!Uuid::isValid($id)) {
-                return null;
-            }
-            $id = Uuid::fromString($id);
-        }
-
+        $uuid = Uuids::parse($id);
         foreach ($this->branches as $branch) {
-            if ($branch->getId()->equals($id)) {
+            if (null !== $uuid && $branch->getId()->equals($uuid)) {
                 return $branch;
             }
         }
@@ -398,9 +324,6 @@ class Club
         return null;
     }
 
-    /**
-     * Добавляет филиал в конец списка.
-     */
     public function addBranch(Branch $branch): static
     {
         if (!$this->branches->contains($branch)) {
@@ -415,15 +338,8 @@ class Club
         return $this;
     }
 
-    public function removeBranch(Branch $branch): static
-    {
-        $this->branches->removeElement($branch);
-
-        return $this;
-    }
-
     /**
-     * Дни занятий кружка — объединение дней всех филиалов, Пн…Вс.
+     * Объединение дней всех филиалов.
      *
      * @return list<DayOfWeek>
      */
@@ -440,10 +356,5 @@ class Club
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
-    }
-
-    public function getUpdatedAt(): \DateTimeImmutable
-    {
-        return $this->updatedAt;
     }
 }

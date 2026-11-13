@@ -10,11 +10,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Ребёнок пользователя. Хранится возраст, а не дата рождения (раздел 7, вопрос 1).
- */
 #[ORM\Entity(repositoryClass: ChildRepository::class)]
 #[ORM\Table(name: 'child')]
 class Child
@@ -28,16 +24,12 @@ class Child
     private User $parent;
 
     #[ORM\Column(length: 50)]
-    #[Assert\NotBlank(message: 'Укажите имя ребёнка')]
-    #[Assert\Length(max: 50, maxMessage: 'Имя не длиннее {{ limit }} символов')]
     private string $firstName;
 
     #[ORM\Column(length: 50, nullable: true)]
-    #[Assert\Length(max: 50, maxMessage: 'Фамилия не длиннее {{ limit }} символов')]
     private ?string $lastName;
 
     #[ORM\Column(type: Types::SMALLINT)]
-    #[Assert\Range(notInRangeMessage: 'Возраст должен быть от {{ min }} до {{ max }} лет', min: 1, max: 18)]
     private int $age;
 
     #[ORM\Column(length: 8, enumType: Gender::class)]
@@ -60,11 +52,6 @@ class Child
     public function getId(): Uuid
     {
         return $this->id;
-    }
-
-    public function getParent(): User
-    {
-        return $this->parent;
     }
 
     public function belongsTo(User $user): bool
@@ -94,14 +81,6 @@ class Child
         $this->lastName = self::emptyToNull($lastName);
 
         return $this;
-    }
-
-    /**
-     * «Имя Фамилия» или только имя.
-     */
-    public function getFullName(): string
-    {
-        return null === $this->lastName ? $this->firstName : $this->firstName.' '.$this->lastName;
     }
 
     public function getAge(): int

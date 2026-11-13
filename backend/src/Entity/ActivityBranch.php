@@ -13,8 +13,7 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Филиал активности (заявки организатора). При одобрении копируется в Branch кружка,
- * связь сохраняется в Branch::$sourceActivityBranch.
+ * При одобрении активности копируется в Branch кружка (Branch::$sourceActivityBranch).
  */
 #[ORM\Entity(repositoryClass: ActivityBranchRepository::class)]
 #[ORM\Table(name: 'activity_branch')]
@@ -37,7 +36,6 @@ class ActivityBranch
     #[ORM\Column(length: 32, nullable: true)]
     private ?string $phone;
 
-    /** Порядок филиала в активности, с 0. */
     #[ORM\Column]
     private int $position = 0;
 
@@ -45,11 +43,6 @@ class ActivityBranch
     #[ORM\OneToMany(targetEntity: ScheduleSlot::class, mappedBy: 'activityBranch', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $slots;
 
-    /**
-     * Филиал привязывается к активности через Activity::addBranch().
-     *
-     * @param string $name пустое имя заменяется на «Основной»
-     */
     public function __construct(string $name, string $address, ?string $phone = null)
     {
         $this->id = Uuid::v7();
@@ -62,11 +55,6 @@ class ActivityBranch
     public function getId(): Uuid
     {
         return $this->id;
-    }
-
-    public function getActivity(): Activity
-    {
-        return $this->activity;
     }
 
     public function getName(): string
@@ -90,8 +78,6 @@ class ActivityBranch
     }
 
     /**
-     * Слоты, отсортированные по дню недели и времени.
-     *
      * @return list<ScheduleSlot>
      */
     public function getSlots(): array
@@ -110,26 +96,18 @@ class ActivityBranch
     }
 
     /**
-     * Дни занятий в порядке Пн…Вс.
-     *
      * @return list<DayOfWeek>
      */
     public function getDays(): array
     {
-        return DayOfWeek::sorted(array_map(static fn (ScheduleSlot $slot): DayOfWeek => $slot->getDay(), $this->slots->toArray()));
+        return ScheduleSlot::days($this->slots);
     }
 
-    /**
-     * Первый слот (по дню и времени) — для совместимых полей `timeFrom/timeTo` в API.
-     */
     public function getFirstSlot(): ?ScheduleSlot
     {
         return $this->getSlots()[0] ?? null;
     }
 
-    /**
-     * @internal вызывается из Activity::addBranch()
-     */
     public function attachToActivity(Activity $activity, int $position): void
     {
         $this->activity = $activity;

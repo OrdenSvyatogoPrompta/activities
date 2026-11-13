@@ -12,13 +12,6 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
-/**
- * Филиал кружка. У каждого кружка минимум один филиал; у сидовых кружков без филиалов
- * он называется «Основной» (DEFAULT_NAME).
- *
- * Расписание — слоты (ScheduleSlot); если задан scheduleNote (например, «По договорённости»),
- * в API выводится он вместо слотов (ScheduleFormatter).
- */
 #[ORM\Entity(repositoryClass: BranchRepository::class)]
 #[ORM\Table(name: 'branch')]
 class Branch
@@ -42,17 +35,14 @@ class Branch
     #[ORM\Column(length: 32, nullable: true)]
     private ?string $phone;
 
+    /** Если задано («По договорённости»), в API выводится вместо слотов. */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $scheduleNote;
 
-    /** Порядок филиала в кружке, с 0. */
     #[ORM\Column]
     private int $position = 0;
 
-    /**
-     * Филиал активности, из которого создан этот филиал при одобрении (для сопоставления
-     * входящих заявок с филиалами активности). У сидовых кружков — null.
-     */
+    /** Источник при одобрении активности — по нему входящие заявки сопоставляются с её филиалами. */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?ActivityBranch $sourceActivityBranch;
@@ -61,9 +51,6 @@ class Branch
     #[ORM\OneToMany(targetEntity: ScheduleSlot::class, mappedBy: 'branch', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $slots;
 
-    /**
-     * Филиал привязывается к кружку через Club::addBranch().
-     */
     public function __construct(
         string $name,
         string $address,
@@ -80,9 +67,6 @@ class Branch
         $this->slots = new ArrayCollection();
     }
 
-    /**
-     * Копия филиала активности (с копиями слотов) для кружка, создаваемого при одобрении.
-     */
     public static function fromActivityBranch(ActivityBranch $source): self
     {
         $branch = new self($source->getName(), $source->getAddress(), $source->getPhone(), null, $source);
@@ -113,23 +97,9 @@ class Branch
         return $this->name;
     }
 
-    public function setName(string $name): static
-    {
-        $this->name = $name;
-
-        return $this;
-    }
-
     public function getAddress(): string
     {
         return $this->address;
-    }
-
-    public function setAddress(string $address): static
-    {
-        $this->address = $address;
-
-        return $this;
     }
 
     public function getPhone(): ?string
@@ -137,23 +107,9 @@ class Branch
         return $this->phone;
     }
 
-    public function setPhone(?string $phone): static
-    {
-        $this->phone = $phone;
-
-        return $this;
-    }
-
     public function getScheduleNote(): ?string
     {
         return $this->scheduleNote;
-    }
-
-    public function setScheduleNote(?string $scheduleNote): static
-    {
-        $this->scheduleNote = $scheduleNote;
-
-        return $this;
     }
 
     public function getPosition(): int
@@ -167,8 +123,6 @@ class Branch
     }
 
     /**
-     * Слоты, отсортированные по дню недели и времени.
-     *
      * @return list<ScheduleSlot>
      */
     public function getSlots(): array
@@ -186,26 +140,14 @@ class Branch
         return $this;
     }
 
-    public function removeSlot(ScheduleSlot $slot): static
-    {
-        $this->slots->removeElement($slot);
-
-        return $this;
-    }
-
     /**
-     * Дни занятий филиала в порядке Пн…Вс.
-     *
      * @return list<DayOfWeek>
      */
     public function getDays(): array
     {
-        return DayOfWeek::sorted(array_map(static fn (ScheduleSlot $slot): DayOfWeek => $slot->getDay(), $this->slots->toArray()));
+        return ScheduleSlot::days($this->slots);
     }
 
-    /**
-     * @internal вызывается из Club::addBranch()
-     */
     public function attachToClub(Club $club, int $position): void
     {
         $this->club = $club;

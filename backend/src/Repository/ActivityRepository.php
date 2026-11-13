@@ -24,8 +24,6 @@ class ActivityRepository extends ServiceEntityRepository
     }
 
     /**
-     * Активности пользователя (все статусы), новые первыми, с филиалами, слотами и кружком.
-     *
      * @return list<Activity>
      */
     public function findByOwner(User $owner): array
@@ -39,9 +37,6 @@ class ActivityRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * Активность по id, только если она принадлежит пользователю (чужая → null → 404).
-     */
     public function findOneOwnedBy(Uuid|string $id, User $owner): ?Activity
     {
         $uuid = Uuids::parse($id);
@@ -58,9 +53,6 @@ class ActivityRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /**
-     * Активность по id для модерации (с автором).
-     */
     public function findOneWithDetails(Uuid|string $id): ?Activity
     {
         $uuid = Uuids::parse($id);
@@ -76,8 +68,6 @@ class ActivityRepository extends ServiceEntityRepository
     }
 
     /**
-     * Очередь модерации: активности в статусе, старые первыми, с автором.
-     *
      * @return list<Activity>
      */
     public function findByStatus(ActivityStatus $status): array
