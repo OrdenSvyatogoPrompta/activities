@@ -139,49 +139,50 @@ type ClubLoadState = LoadStatus | 'notFound';
       </div>
 
       @if (enrollmentOpen()) {
-        <div class="sheet-backdrop" (click)="closeEnrollment()"></div>
-        <div class="sheet">
-          <div class="sheet__handle"></div>
-          <h2 class="sheet__title">Запись в кружок</h2>
-          <p class="sheet__club">{{ club.name }}</p>
+        <div class="sheet-backdrop" (click)="closeEnrollment()">
+          <div class="sheet" (click)="$event.stopPropagation()">
+            <div class="sheet__handle"></div>
+            <h2 class="sheet__title">Запись в кружок</h2>
+            <p class="sheet__club">{{ club.name }}</p>
 
-          @if (club.branches.length > 1) {
+            @if (club.branches.length > 1) {
+              <div class="sheet__section">
+                <div class="sheet__label">Выберите филиал</div>
+                <div class="sheet__chips">
+                  @for (branch of club.branches; track branch.id) {
+                    <button class="s-chip" [class.s-chip--active]="selectedBranch()?.id === branch.id"
+                      (click)="selectedBranch.set(branch)">{{ branch.name }}</button>
+                  }
+                </div>
+              </div>
+            }
+
             <div class="sheet__section">
-              <div class="sheet__label">Выберите филиал</div>
+              <div class="sheet__label">Для кого?</div>
               <div class="sheet__chips">
-                @for (branch of club.branches; track branch.id) {
-                  <button class="s-chip" [class.s-chip--active]="selectedBranch()?.id === branch.id"
-                    (click)="selectedBranch.set(branch)">{{ branch.name }}</button>
+                <button class="s-chip" [class.s-chip--active]="forChild() === null"
+                  (click)="selectParticipant(null)">Для себя{{ isEnrolled(null) ? ' ✓' : '' }}</button>
+                @for (child of children.items(); track child.id) {
+                  <button class="s-chip" [class.s-chip--active]="forChild()?.id === child.id"
+                    (click)="selectParticipant(child)">
+                    {{ child.firstName }}, {{ child.age }} л.{{ isEnrolled(child) ? ' ✓' : '' }}
+                  </button>
                 }
               </div>
-            </div>
-          }
-
-          <div class="sheet__section">
-            <div class="sheet__label">Для кого?</div>
-            <div class="sheet__chips">
-              <button class="s-chip" [class.s-chip--active]="forChild() === null"
-                (click)="selectParticipant(null)">Для себя{{ isEnrolled(null) ? ' ✓' : '' }}</button>
-              @for (child of children.items(); track child.id) {
-                <button class="s-chip" [class.s-chip--active]="forChild()?.id === child.id"
-                  (click)="selectParticipant(child)">
-                  {{ child.firstName }}, {{ child.age }} л.{{ isEnrolled(child) ? ' ✓' : '' }}
-                </button>
+              @if (selectedEnrolled()) {
+                <p class="sheet__hint">У этого участника уже есть активная заявка в этот кружок</p>
               }
             </div>
-            @if (selectedEnrolled()) {
-              <p class="sheet__hint">У этого участника уже есть активная заявка в этот кружок</p>
+
+            @if (enrollError()) {
+              <p class="inline-error sheet__error">{{ enrollError() }}</p>
             }
+
+            <button class="sheet__submit" (click)="confirmEnrollment(club)"
+              [disabled]="submitting() || selectedEnrolled()">
+              {{ submitting() ? 'Отправляем…' : 'Отправить заявку' }}
+            </button>
           </div>
-
-          @if (enrollError()) {
-            <p class="inline-error sheet__error">{{ enrollError() }}</p>
-          }
-
-          <button class="sheet__submit" (click)="confirmEnrollment(club)"
-            [disabled]="submitting() || selectedEnrolled()">
-            {{ submitting() ? 'Отправляем…' : 'Отправить заявку' }}
-          </button>
         </div>
       }
       @if (enrollmentDone()) {
