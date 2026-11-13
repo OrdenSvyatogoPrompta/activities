@@ -213,10 +213,10 @@ function groupKey(bi: number, gi: number): string {
       }
 
       <div class="form-actions">
-        <button type="button" class="btn-primary" [disabled]="creating()" (click)="submit()">
+        <button type="button" class="btn btn--primary" [disabled]="creating()" (click)="submit()">
           {{ creating() ? 'Отправляем…' : 'Отправить на модерацию' }}
         </button>
-        <button type="button" class="btn-ghost" [disabled]="creating()" (click)="cancelled.emit()">Отмена</button>
+        <button type="button" class="btn btn--ghost" [disabled]="creating()" (click)="cancelled.emit()">Отмена</button>
       </div>
     </div>
   `,

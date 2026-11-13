@@ -51,10 +51,10 @@ const CHILD_FIELDS = ['firstName', 'lastName', 'age', 'gender'];
 
       @if (isEdit()) {
         <div class="form-actions">
-          <button type="button" class="btn-primary" [disabled]="saving()" (click)="submit()">
+          <button type="button" class="btn btn--primary" [disabled]="saving()" (click)="submit()">
             {{ saving() ? 'Сохраняем…' : 'Сохранить' }}
           </button>
-          <button type="button" class="btn-ghost" [disabled]="saving()" (click)="cancelled.emit()">Отмена</button>
+          <button type="button" class="btn btn--ghost" [disabled]="saving()" (click)="cancelled.emit()">Отмена</button>
         </div>
       } @else {
         <button type="button" class="btn-add-child" [disabled]="saving()" (click)="submit()">

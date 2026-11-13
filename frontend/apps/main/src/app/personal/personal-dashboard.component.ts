@@ -188,7 +188,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
         @if (tab() === 'activities') {
 
           @if (selectedActivity(); as act) {
-            <button class="back-btn" (click)="selectActivity(null)">← Все активности</button>
+            <button class="btn-link back-btn" (click)="selectActivity(null)">← Все активности</button>
 
             <div class="act-detail">
               <div class="act-detail__header">

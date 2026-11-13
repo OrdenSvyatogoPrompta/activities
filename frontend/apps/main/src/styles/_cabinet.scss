@@ -1,0 +1,102 @@
+// Шапка и вкладки ЛК и админки.
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  height: 52px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  &__logo {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--brand-orange);
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+
+  &__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-purple);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__logout {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+    &:hover { color: #ef4444; }
+  }
+}
+
+.tabs {
+  display: flex;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.tab {
+  padding: 14px 16px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2.5px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover:not(&--active) { color: var(--color-text); }
+
+  &--active {
+    color: var(--brand-purple);
+    border-bottom-color: var(--brand-purple);
+    font-weight: 600;
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: var(--color-text-secondary);
+
+    .tab--active & {
+      background: var(--brand-purple-muted);
+      color: var(--brand-purple);
+    }
+  }
+}
