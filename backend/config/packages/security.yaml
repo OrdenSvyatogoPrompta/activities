@@ -5,12 +5,10 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        # TODO(группа B): заменить на entity-провайдер, когда появится сущность App\Entity\User:
-        #     app_user_provider:
-        #         entity: { class: App\Entity\User, property: email }
-        # и указать его в firewalls.api.provider. Пустой in-memory провайдер нужен только
-        # для того, чтобы контейнер собирался: войти через него нельзя.
-        users_in_memory: { memory: null }
+        # Пользователи из БД; поиск по email без учёта регистра — UserRepository::loadUserByIdentifier()
+        app_user_provider:
+            entity:
+                class: App\Entity\User
 
     role_hierarchy:
         ROLE_ADMIN: ROLE_USER
@@ -24,7 +22,7 @@ security:
         api:
             pattern: ^/api
             stateless: true
-            provider: users_in_memory # TODO(группа B): app_user_provider
+            provider: app_user_provider
 
             # Точек входа две (jwt и refresh_jwt), поэтому нужная указана явно: запрос без
             # токена к защищённому маршруту получает 401 от JWT-аутентификатора
