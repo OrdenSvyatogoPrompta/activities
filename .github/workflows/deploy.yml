@@ -99,13 +99,23 @@ jobs:
           # StrictHostKeyChecking=yes: подключаться только к серверу из SSH_KNOWN_HOSTS
           printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  Port %s\n' "$SSH_PORT" > ~/.ssh/config
 
-      # Значения в одинарных кавычках: compose не раскрывает в них $ и спецсимволы
+      # Значения в одинарных кавычках: compose не раскрывает в них $ и спецсимволы.
+      # PEM-ключи JWT многострочные — compose читает многострочные значения в кавычках
       - name: Prepare .env
         env:
           APP_SECRET: ${{ secrets.APP_SECRET }}
           MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}
+          JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE }}
         run: |
+          for name in JWT_SECRET_KEY JWT_PUBLIC_KEY JWT_PASSPHRASE; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Не задан секрет $name (Settings → Environments → production)"
+              exit 1
+            fi
+          done
           umask 077
           {
             echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -114,6 +124,9 @@ jobs:
             printf "APP_SECRET='%s'\n" "$APP_SECRET"
             printf "MYSQL_PASSWORD='%s'\n" "$MYSQL_PASSWORD"
             printf "MYSQL_ROOT_PASSWORD='%s'\n" "$MYSQL_ROOT_PASSWORD"
+            printf "JWT_SECRET_KEY='%s'\n" "$JWT_SECRET_KEY"
+            printf "JWT_PUBLIC_KEY='%s'\n" "$JWT_PUBLIC_KEY"
+            printf "JWT_PASSPHRASE='%s'\n" "$JWT_PASSPHRASE"
           } > .env.prod
 
       - name: Upload files
@@ -125,8 +138,11 @@ jobs:
           ssh "$SSH_TARGET" "chmod 600 '$DEPLOY_PATH/.env'"
 
       # Токен передаётся через stdin (не попадает в аргументы процессов и на диск сервера,
-      # кроме ~/.docker/config.json на время pull) и удаляется trap'ом при любом исходе
-      - name: Pull images and restart
+      # кроме ~/.docker/config.json на время pull) и удаляется trap'ом при любом исходе.
+      # Миграции применяются новым образом бэкенда до перезапуска сервисов: сначала
+      # поднимается MySQL, затем одноразовый контейнер выполняет doctrine:migrations:migrate.
+      # </dev/null: иначе docker compose run/exec прочитает остаток этого скрипта из stdin
+      - name: Pull images, migrate and restart
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -138,6 +154,18 @@ jobs:
           printf '%s' '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin
           docker compose pull
           docker logout ghcr.io
+          docker compose up -d mysql
+          for attempt in \$(seq 1 60); do
+            if docker compose exec -T mysql mysqladmin ping -h 127.0.0.1 --silent </dev/null >/dev/null 2>&1; then
+              break
+            fi
+            if [ "\$attempt" -eq 60 ]; then
+              echo "MySQL не поднялся за 2 минуты" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          docker compose run --rm -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration </dev/null
           docker compose up -d --remove-orphans
           docker image prune -f
           EOF
