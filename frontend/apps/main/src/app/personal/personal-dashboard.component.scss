@@ -21,9 +21,11 @@
     height: 200px;
     border-radius: 50%;
     background: rgba(255,255,255,0.08);
+    pointer-events: none;
   }
 
   &__top {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 14px;
