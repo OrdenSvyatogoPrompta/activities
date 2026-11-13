@@ -42,6 +42,9 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
         <div class="header__actions">
+          @if (isAdmin()) {
+            <a class="header__admin" routerLink="/admin">Модерация</a>
+          }
           <button class="header__logout" (click)="logout()">Выйти</button>
         </div>
       </header>
@@ -374,6 +377,8 @@ export class PersonalDashboardComponent {
   readonly enrollments = this.enrollmentsService.mine;
   readonly children    = this.childrenService.children;
   readonly activities  = this.activitiesService.mine;
+
+  readonly isAdmin = computed(() => this.user()?.roles?.includes('ROLE_ADMIN') ?? false);
 
   readonly tab         = signal<Tab>('enrollments');
   readonly enrollView  = signal<EnrollView>('list');

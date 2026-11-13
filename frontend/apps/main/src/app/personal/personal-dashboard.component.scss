@@ -32,6 +32,14 @@
     gap: 16px;
   }
 
+  &__admin {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6880f8;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+
   &__logout {
     font-size: 13px;
     font-weight: 500;
