@@ -7,6 +7,16 @@
 > Контекст проекта — `CLAUDE.md`. Правила бэкенда — `backend/AGENTS.md` (обязательны).
 > Документ «Требования к MVP-прототипу…» в корне **не** является источником для этой задачи.
 
+> **Статус на 2026-11-13** (подробности и чеклист ручной проверки — раздел 8):
+> | Группа | Статус | Ветка |
+> |---|---|---|
+> | A — Платформа | ✅ код написан, **не проверен запуском** | `feat/backend-platform` |
+> | I — Интеграция фронтенда (I1–I3) | ✅ код написан, **не проверен запуском** | `feat/frontend-api-integration` |
+> | B — Модель, миграции, фикстуры | ⏳ не начата (ждёт проверки A) | — |
+> | C, D, E, F, G, H | ⏳ не начаты (ждут B) | — |
+>
+> Ветки не слиты в `main` и не запушены.
+
 ---
 
 ## 1. Принятые решения
@@ -441,3 +451,147 @@ Club 1─* Branch 1─* ScheduleSlot
 6. **Перечисления на русском** в API (решение для скорости интеграции). Если появятся другие клиенты —
    перейти на коды (`sport`, `mon`) с локализацией на фронте.
 7. Нужна ли **админка UI** для модерации в рамках MVP или достаточно API + Postman/curl.
+
+---
+
+## 8. Ход выполнения
+
+Агенты работали без PHP, Node, Docker и сети: **ни один таргет `make` не запускался**, код проверен
+только чтением (конфиги сверены с исходниками в `backend/vendor/`). Всё ниже нужно проверить вручную.
+
+### 8.1. Группа A — Платформа ✅ (не проверено)
+
+Ветка `feat/backend-platform` (от `main` 0bf50a1), 6 коммитов, 21 файл:
+```
+6c7bb5a test(api): добавил smoke-тесты платформы
+a9b50d6 ci(deploy): добавил миграции и ключи JWT в прод-деплой
+cc8fd61 build(docker): добавил расширение intl в образы бэкенда
+ce8f82f feat(api): задал таймзону Asia/Vladivostok и описал тестовую базу
+9965f52 feat(auth): настроил firewall api, JWT и refresh-токен в cookie
+f1311f6 feat(api): добавил ответы об ошибках в формате problem+json
+```
+
+**Сделано**
+- `intl` в обоих Dockerfile бэкенда; в `docker-compose.yml` к `DATABASE_URL` добавлен `charset=utf8mb4`.
+- Тестовая БД — суффикс `_test` из `doctrine.yaml` (`.env.test` без `DATABASE_URL`).
+- `security.yaml`: firewall `api` (`^/api`, stateless, `entry_point: jwt`), `json_login` на `/api/auth/login`,
+  `login_throttling` 5/мин, `refresh_jwt` на `/api/auth/refresh`, `logout` на `/api/auth/logout`,
+  `access_control` по п. 4, `role_hierarchy ROLE_ADMIN → ROLE_USER`.
+- Маршрут refresh рецепта (`/api/token/refresh`, YAML) удалён; маршруты auth — атрибутами в
+  `src/Controller/Security/AuthFirewallController.php`.
+- JWT: access 900 с, refresh 30 дней, single-use; refresh в cookie `refresh_token`
+  (HttpOnly, Secure, SameSite=Strict, Path=/api/auth), из тела ответа убран; в prod ключи — содержимым PEM.
+- problem+json: `src/Http/Problem/*`, `src/EventListener/ProblemExceptionListener.php`,
+  `src/EventListener/AuthenticationFailureProblemListener.php` (401 / 429 при throttling).
+- Таймзона: `Kernel::boot()` по `APP_TIMEZONE` (по умолчанию `Asia/Vladivostok`).
+- Деплой: JWT-секреты в `.env` сервера (с проверкой на пустоту), перед перезапуском — `up -d mysql`,
+  ожидание `mysqladmin ping`, `doctrine:migrations:migrate`; `docker-compose.prod.yml` передаёт JWT-переменные бэкенду.
+- Тесты: `tests/Functional/Platform/PlatformSmokeTest.php`, `tests/Unit/Http/Problem/ProblemFactoryTest.php`;
+  тестовый контроллер `tests/Fixtures/Controller/ProtectedProbeController.php` (`/api/_test/protected`,
+  `/api/admin/_test/protected`) подключён блоком `when@test` в `config/services.yaml`.
+
+**Отклонения и решения агента**
+- Сообщения об ошибках: `symfony/translation` не установлен → сообщения валидатора по умолчанию английские;
+  **группам B–H писать `message:` на русском в каждом `#[Assert]`** (или поставить пакет + `default_locale: ru`).
+  `detail` берётся из исключения, только если в нём есть кириллица; 5xx не раскрываются; в debug добавляется `debug`.
+- Logout работает без access-токена (listener выхода срабатывает до `access_control`, достаточно cookie).
+- Не включены опции gesdinet `hash_tokens`, `reuse_detection`, `rate_limiter` — можно позже.
+- `composer recipes:update` может вернуть удалённый файл маршрута рецепта.
+
+**Передано следующим группам**
+- **B:** в `security.yaml` заменить `users_in_memory` на `entity: { class: App\Entity\User, property: email }`
+  (TODO в `providers` и в firewall `api`); в миграцию включить таблицу `refresh_tokens` (`App\Entity\RefreshToken`).
+- **C:** lexik отдаёт `{ token }` — нужен слушатель `on_authentication_success` для `{ accessToken, user }` (и для refresh);
+  gesdinet на logout отвечает 200 `{code, message}` (без cookie — 400) — нужен слушатель `LogoutEvent` для `204`;
+  в тестах с cookie — `HTTPS=on` (cookie `Secure`); состояние throttling в файловом кеше переживает прогоны
+  (глобальный лимит 25/мин на IP) — учесть в тестах.
+
+**Изменения для `docs/deploy-checklist.md`** (файл не в git, агент его не трогал)
+- Секреты environment `production`: `JWT_SECRET_KEY` (содержимое `private.pem` целиком), `JWT_PUBLIC_KEY`
+  (содержимое `public.pem`), `JWT_PASSPHRASE` (непустая). Генерация:
+  ```
+  openssl genpkey -algorithm RSA -aes256 -pass pass:<фраза> -pkeyopt rsa_keygen_bits:4096 -out private.pem
+  openssl pkey -in private.pem -passin pass:<фраза> -pubout -out public.pem
+  ```
+- Миграции теперь применяются при деплое — отметить пункт.
+- Выдача админа на проде — `app:user:promote` (появится в группе C).
+- Ротация ключей JWT делает недействительными все выданные токены.
+
+### 8.2. Группа I — Интеграция фронтенда ✅ (не проверено)
+
+Ветка `feat/frontend-api-integration` (от `main` 727aa08 — без коммита с пакетами бэкенда, на фронт не влияет),
+3 коммита, 25 файлов, только `frontend/apps/main/**`:
+```
+4846a35 feat(ui): перевёл личный кабинет на API                    (I3)
+f651841 feat(ui): подключил каталог и запись в кружок к API         (I2)
+c719472 feat(auth): перевёл авторизацию фронта на HTTP API с JWT    (I1)
+```
+
+**Сделано**
+- `ApiClient` (`withCredentials`), `provideHttpClient(withInterceptors([authInterceptor]), withFetch())`,
+  тихий refresh при старте (`provideAppInitializer`), `authGuard` на `/personal` с `?returnUrl=`,
+  разбор problem+json (`api/api-error.ts`), `violations` → ошибки полей формы.
+- Моки `MOCK_USER` и `CLUBS` удалены.
+- Вызываемые эндпоинты:
+
+  | Сервис | Вызовы |
+  |---|---|
+  | `AuthService` | `POST /api/auth/login`, `/register`, `/refresh`, `/logout`; `GET /api/me` |
+  | `ClubsService` | `GET /api/clubs`, `GET /api/clubs/{slug}` |
+  | `EnrollmentsService` | `GET /api/me/enrollments`; `POST /api/enrollments`, `/{id}/cancel`, `/{id}/confirm`, `/{id}/reject` |
+  | `ChildrenService` | `GET`, `POST /api/me/children`; `DELETE /api/me/children/{id}` |
+  | `ActivitiesService` | `GET`, `POST /api/me/activities` |
+
+**Отклонения и решения агента**
+- Карточка кружка берётся из кеша каталога; `GET /api/clubs/{slug}` — только при прямом заходе.
+- Пустые POST шлют `{}`; `branchId` в `POST /api/enrollments` отправляется всегда.
+- Logout шлёт Bearer (Bearer не шлётся только на login/register/refresh). Провал refresh → `/auth/login`
+  даже с публичного каталога (гостя без токена не касается).
+- Входящие заявки — отдельный блок, сгруппированный по `branchId` кружка (не вложен под филиалы активности:
+  контракт не связывает филиалы активности и кружка).
+- Форма активности: один филиал, несколько «групп слотов» (дни + время) → `slots[]`; теги через запятую;
+  подпись цены активности собирается на клиенте.
+- Счётчики ЛК — по загруженным спискам (записи только `pending|confirmed`), до загрузки — `user.stats`.
+- «Уже записан» — по участнику: CTA «✓ Заявка: для себя, Артём», в шите участники с активной заявкой
+  отмечены ✓ и заблокированы; «Записаться» скрывается, только когда записаны все.
+- Ошибки 409 (запись, отмена, удаление ребёнка) и 401 входа — фиксированные русские тексты, не `detail`.
+- Общие стили (`.spinner`, `.state`, `.status-badge`, `.inline-error`) вынесены в `styles/styles.scss`.
+
+### 8.3. Ручная проверка
+
+**Группа A** (ветка `feat/backend-platform`):
+1. `make build` — пересобрать образ бэкенда (добавлен `intl`).
+2. `make lint` — `lint:container`, `lint:yaml`, маппинг Doctrine, php-cs-fixer (особо: выравнивание phpdoc,
+   типизированные константы `const string`).
+3. `make start && make jwt-keys && make test-db && make test` — smoke-тесты платформы. Тесты в БД не ходят,
+   но DAMA-расширение должно работать без запросов.
+4. Вручную: `curl -i localhost:8080/api/ping` → 200; `curl -i localhost:8080/api/me` → 401
+   `application/problem+json`; `curl -i localhost:8080/api/nope` → 404 problem+json.
+5. Риски конфигов: ключи `refresh_jwt` / `entry_point: jwt` в `security.yaml` (по фабрикам в vendor),
+   блок `when@test` в `config/services.yaml`.
+6. Прод (при первом деплое): завести 3 JWT-секрета; убедиться, что многострочные PEM в одинарных кавычках
+   корректно читаются `docker compose` из `.env` сервера; после деплоя проверить логин.
+7. Обновить `CLAUDE.md`: «Миграций в деплое пока нет», «Не установлены Doctrine/Security…», раздел
+   «Данные и сервисы (моки)» — устарели после слияния веток.
+
+**Группа I** (ветка `feat/frontend-api-integration`):
+1. `make typecheck` и prod-сборка `make build` (`yarn build`).
+2. Бюджет `anyComponentStyle` (ошибка при 16 kB): `personal-dashboard.component.scss` ≈ 22.5 kB исходника,
+   ≈ 15 kB после минификации — впритык. Если упадёт — вынести `.ie-btn`, `.slot-group`, `.btn-link` в глобальные стили.
+3. Шаблоны при `strictTemplates`: `@for (…; track $index; let i = $index)`, `@if (a() || b(); as msg)`,
+   `[class]="'status-badge status-badge--' + x"`, `(user.name || user.email)[0]`; `Child.lastName` стал `string | null`.
+4. `provideAppInitializer` и `effect()` в конструкторах root-сервисов (сброс данных при выходе).
+5. Интерцептор: общий in-flight refresh (`shareReplay` + `finalize`), отсутствие бесконечного цикла на 401.
+6. Сценарии раздела 6 — **только после групп B–H** (до этого API отвечает 401/404, фронт покажет ошибки загрузки).
+   До бэкенда можно проверить: каталог показывает состояние ошибки, `/personal` редиректит на `/auth/login`,
+   формы входа/регистрации показывают ошибку сервера.
+
+### 8.4. Открытые вопросы, появившиеся в ходе работы
+1. Сопоставление филиалов активности и кружка при одобрении (G/H): без него входящие заявки нельзя показать
+   под филиалами активности. Предложение — хранить в `Branch` ссылку на исходный `ActivityBranch`
+   и отдавать `activityBranchId` во входящих заявках.
+2. Публичные маршруты: logout на бэке работает без access-токена, фронт шлёт Bearer — совместимо, но
+   стоит зафиксировать в контракте.
+3. Уводить ли гостя с протухшей сессией на логин с публичного каталога (сейчас — да, как в контракте).
+4. Несколько филиалов при создании активности — UI поддерживает один.
+5. Ставить ли `symfony/translation` с `default_locale: ru` вместо ручных русских `message:` в валидации.
