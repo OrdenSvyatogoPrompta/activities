@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Service\Catalog;
+
+use App\Dto\Catalog\BranchView;
+use App\Dto\Catalog\ClubView;
+use App\Dto\Catalog\ScheduleSlotView;
+use App\Entity\Branch;
+use App\Entity\Club;
+use App\Entity\Enum\Category;
+use App\Entity\Enum\DayOfWeek;
+use App\Entity\ScheduleSlot;
+use App\Service\Formatter\AgeFormatter;
+use App\Service\Formatter\PriceFormatter;
+use App\Service\Formatter\ScheduleFormatter;
+
+/**
+ * Собирает ответ API каталога из сущности Club: производные поля (`age`, `price`,
+ * `schedule`, `days`) считают форматтеры, верхнеуровневые `address/phone/schedule`
+ * берутся из первого филиала.
+ */
+final readonly class ClubViewFactory
+{
+    public function __construct(
+        private AgeFormatter $ageFormatter,
+        private PriceFormatter $priceFormatter,
+        private ScheduleFormatter $scheduleFormatter,
+    ) {
+    }
+
+    /**
+     * @param iterable<Club> $clubs
+     *
+     * @return list<ClubView>
+     */
+    public function createList(iterable $clubs): array
+    {
+        $views = [];
+        foreach ($clubs as $club) {
+            $views[] = $this->create($club);
+        }
+
+        return $views;
+    }
+
+    public function create(Club $club): ClubView
+    {
+        $branches = array_map($this->createBranch(...), $this->sortedBranches($club));
+        $first = $branches[0] ?? null;
+
+        return new ClubView(
+            id: $club->getSlug(),
+            name: $club->getName(),
+            categories: array_map(static fn (Category $category): string => $category->value, $club->getCategories()),
+            emoji: $club->getEmoji(),
+            color: $club->getColor(),
+            shortDescription: $club->getShortDescription(),
+            fullDescription: $club->getFullDescription(),
+            age: $this->ageFormatter->format($club->getAgeMin(), $club->getAgeMax()),
+            ageMin: $club->getAgeMin(),
+            ageMax: $club->getAgeMax(),
+            days: self::dayValues($club->getDays()),
+            visitType: $club->getVisitType()->value,
+            schedule: $first?->schedule ?? '',
+            address: $first?->address ?? '',
+            phone: $first?->phone ?? '',
+            price: $this->priceFormatter->format($club->getPriceType(), $club->getPriceAmount()),
+            priceAmount: $club->getPriceAmount(),
+            priceType: $club->getPriceType()->value,
+            tags: array_values($club->getTags()),
+            branches: $branches,
+        );
+    }
+
+    private function createBranch(Branch $branch): BranchView
+    {
+        return new BranchView(
+            id: $branch->getId()->toRfc4122(),
+            name: $branch->getName(),
+            address: $branch->getAddress(),
+            // Во фронтовой модели phone — строка; у филиалов одобренных активностей его может не быть
+            phone: $branch->getPhone() ?? '',
+            schedule: $this->scheduleFormatter->formatBranch($branch),
+            days: self::dayValues($branch->getDays()),
+            slots: array_map(
+                static fn (ScheduleSlot $slot): ScheduleSlotView => new ScheduleSlotView(
+                    $slot->getDay()->value,
+                    $slot->getTimeFromString(),
+                    $slot->getTimeToString(),
+                ),
+                $branch->getSlots(),
+            ),
+        );
+    }
+
+    /**
+     * @return list<Branch>
+     */
+    private function sortedBranches(Club $club): array
+    {
+        $branches = $club->getBranches()->toArray();
+        usort($branches, static fn (Branch $a, Branch $b): int => $a->getPosition() <=> $b->getPosition());
+
+        return $branches;
+    }
+
+    /**
+     * @param list<DayOfWeek> $days
+     *
+     * @return list<string>
+     */
+    private static function dayValues(array $days): array
+    {
+        return array_map(static fn (DayOfWeek $day): string => $day->value, $days);
+    }
+}
