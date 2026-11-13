@@ -5,7 +5,11 @@ import { RouterLink } from '@angular/router';
 import { ClubCategory, PriceType } from '../models/club.model';
 import { ClubsService } from '../services/clubs.service';
 
-const CATEGORIES: Array<'Все' | ClubCategory> = ['Все', 'Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
+const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
+const CATEGORY_EMOJI: Record<ClubCategory, string> = {
+  Спорт: '🏃', Творчество: '🎨', Наука: '🔬', Музыка: '🎵', Танцы: '💃',
+};
+const AGES = Array.from({ length: 15 }, (_, i) => i + 4); // 4..18
 const AGE_MIN = 0;
 const AGE_MAX = 18;
 const PRICE_MIN = 0;
@@ -51,38 +55,45 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <button class="header__search-clear" (click)="searchQuery.set('')">✕</button>
               }
             </div>
-            <button class="header__auth" disabled>Войти</button>
+            <a class="header__auth" routerLink="/auth/login">Войти</a>
           </div>
         </header>
 
-        <div class="tabs-bar">
-          <div class="categories">
-            @for (cat of categories; track cat) {
-              <button class="cat-tab" [class.cat-tab--active]="isCatActive(cat)"
-                (click)="toggleCategory(cat)">{{ cat }}</button>
-            }
+        <!-- Discovery bar -->
+        <div class="discovery-bar">
+          <div class="discovery-row">
+            <div class="cat-chips">
+              @for (cat of categories; track cat) {
+                <button class="cat-chip"
+                  [class.cat-chip--active]="isCatActive(cat)"
+                  (click)="toggleCategory(cat)">
+                  {{ catEmoji[cat] }} {{ cat }}
+                </button>
+              }
+            </div>
+
+            <div class="discovery-actions">
+              @if (hasActiveFilters()) {
+                <button class="reset-btn" (click)="resetFilters()">Сбросить</button>
+              }
+              <button class="filter-btn" [class.filter-btn--active]="filtersOpen() || hasSecondaryFilters()"
+                (click)="filtersOpen.set(!filtersOpen())">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/>
+                  <line x1="11" y1="18" x2="13" y2="18"/>
+                </svg>
+                Фильтры
+                @if (activeSecondaryCount() > 0) {
+                  <span class="filter-btn__badge">{{ activeSecondaryCount() }}</span>
+                }
+              </button>
+            </div>
           </div>
-          @if (hasActiveFilters()) {
-            <button class="reset-btn" (click)="resetFilters()">Сбросить</button>
-          }
-          <button class="filter-btn" [class.filter-btn--active]="filtersOpen() || hasSecondaryFilters()"
-            (click)="filtersOpen.set(!filtersOpen())">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/>
-              <line x1="11" y1="18" x2="13" y2="18"/>
-            </svg>
-            Фильтры
-            @if (activeSecondaryCount() > 0) {
-              <span class="filter-btn__badge">{{ activeSecondaryCount() }}</span>
-            }
-          </button>
         </div>
 
         @if (filtersOpen()) {
           <div class="filter-panel">
-
-            <!-- Стоимость -->
             <div class="filter-section">
               <span class="filter-section__title">Стоимость</span>
               <div class="filter-section__tags">
@@ -95,17 +106,12 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <ng-container *ngTemplateOutlet="priceSliderTpl"></ng-container>
               }
             </div>
-
             <div class="filter-panel__divider"></div>
-
-            <!-- Возраст -->
             <div class="filter-section">
-              <span class="filter-section__title">Возраст ребёнка</span>
+              <span class="filter-section__title">Диапазон возраста</span>
               <ng-container *ngTemplateOutlet="ageSliderTpl"></ng-container>
             </div>
-
           </div>
-
           <div class="backdrop" (click)="filtersOpen.set(false)"></div>
         }
 
@@ -218,9 +224,12 @@ export class HomeComponent {
 
   readonly categories    = CATEGORIES;
   readonly categoryBadge = CATEGORY_BADGE;
+  readonly catEmoji      = CATEGORY_EMOJI;
+  readonly ages          = AGES;
 
   readonly searchQuery         = signal('');
   readonly selectedCategories  = signal<Set<ClubCategory>>(new Set());
+  readonly quickAge            = signal<number | null>(null);
   readonly priceType        = signal<PriceType | null>(null);
   readonly priceFrom        = signal<number | null>(null);
   readonly priceTo          = signal<number | null>(null);
@@ -250,8 +259,9 @@ export class HomeComponent {
     const pto = this.priceTo();
 
     const cats = this.selectedCategories();
+    const filterByCat = cats.size > 0 && cats.size < CATEGORIES.length;
     return this.clubsService.getAll().filter((club) => {
-      if (cats.size > 0 && !club.categories.some(c => cats.has(c))) return false;
+      if (filterByCat && !club.categories.some(c => cats.has(c))) return false;
       if (q && !club.name.toLowerCase().includes(q) && !club.shortDescription.toLowerCase().includes(q)) return false;
       if (pt === 'free'    && club.priceType !== 'free')    return false;
       if (pt === 'pushkin' && club.priceType !== 'pushkin') return false;
@@ -260,15 +270,20 @@ export class HomeComponent {
         if (pf !== null && club.priceAmount < pf) return false;
         if (pto !== null && club.priceAmount > pto) return false;
       }
-      if (af !== null && club.ageMax < af) return false;
-      if (at !== null && club.ageMin > at) return false;
+      const qa = this.quickAge();
+      if (qa !== null) {
+        if (club.ageMin > qa || club.ageMax < qa) return false;
+      } else {
+        if (af !== null && club.ageMax < af) return false;
+        if (at !== null && club.ageMin > at) return false;
+      }
       return true;
     });
   });
 
   readonly hasSecondaryFilters = computed(() =>
     this.priceType() !== null || this.priceFrom() !== null || this.priceTo() !== null
-    || this.ageFrom() !== null || this.ageTo() !== null,
+    || this.ageFrom() !== null || this.ageTo() !== null || this.quickAge() !== null,
   );
 
   readonly activeSecondaryCount = computed(() => {
@@ -283,25 +298,22 @@ export class HomeComponent {
     this.searchQuery() !== '' || this.selectedCategories().size > 0 || this.hasSecondaryFilters(),
   );
 
-  toggleCategory(cat: 'Все' | ClubCategory): void {
-    if (cat === 'Все') {
-      this.selectedCategories.set(new Set());
-      return;
-    }
+  selectQuickAge(age: number): void {
+    this.quickAge.set(this.quickAge() === age ? null : age);
+    // сбросить слайдер возраста чтобы не конфликтовали
+    this.ageFrom.set(null);
+    this.ageTo.set(null);
+  }
+
+  toggleCategory(cat: ClubCategory): void {
     const next = new Set(this.selectedCategories());
-    if (next.has(cat)) {
-      next.delete(cat);
-    } else {
-      next.add(cat);
-      // если выбраны все — сбросить на «Все»
-      const allCats = CATEGORIES.filter(c => c !== 'Все') as ClubCategory[];
-      if (allCats.every(c => next.has(c))) next.clear();
-    }
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
     this.selectedCategories.set(next);
   }
 
-  isCatActive(cat: 'Все' | ClubCategory): boolean {
-    return cat === 'Все' ? this.selectedCategories().size === 0 : this.selectedCategories().has(cat as ClubCategory);
+  isCatActive(cat: ClubCategory): boolean {
+    return this.selectedCategories().has(cat);
   }
 
   togglePriceType(type: PriceType): void {
@@ -336,6 +348,7 @@ export class HomeComponent {
     this.priceTo.set(null);
     this.ageFrom.set(null);
     this.ageTo.set(null);
+    this.quickAge.set(null);
     this.filtersOpen.set(false);
   }
 }

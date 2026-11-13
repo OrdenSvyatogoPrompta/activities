@@ -1,0 +1,40 @@
+{
+  "name": "org",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/org/src",
+  "prefix": "aco",
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "outputs": ["{options.outputPath.base}"],
+      "options": {
+        "outputPath": {
+          "base": "../public/org",
+          "browser": ""
+        },
+        "baseHref": "/org/",
+        "index": "apps/org/src/index.html",
+        "browser": "apps/org/src/main.ts",
+        "polyfills": ["apps/org/src/polyfills.ts"],
+        "tsConfig": "apps/org/tsconfig.app.json",
+        "assets": ["apps/org/src/favicon.ico"],
+        "styles": ["apps/org/src/styles.scss"],
+        "scripts": []
+      },
+      "configurations": {
+        "production": { "outputHashing": "all" },
+        "development": { "optimization": false, "sourceMap": true, "namedChunks": true }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "configurations": {
+        "production": { "buildTarget": "org:build:production" },
+        "development": { "buildTarget": "org:build:development" }
+      },
+      "defaultConfiguration": "development"
+    }
+  }
+}

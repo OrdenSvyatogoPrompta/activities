@@ -1,0 +1,48 @@
+{
+  "name": "personal",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/personal/src",
+  "prefix": "acp",
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "outputs": ["{options.outputPath.base}"],
+      "options": {
+        "outputPath": {
+          "base": "../public/personal",
+          "browser": ""
+        },
+        "baseHref": "/personal/",
+        "index": "apps/personal/src/index.html",
+        "browser": "apps/personal/src/main.ts",
+        "polyfills": ["apps/personal/src/polyfills.ts"],
+        "tsConfig": "apps/personal/tsconfig.app.json",
+        "assets": [
+          "apps/personal/src/favicon.ico"
+        ],
+        "styles": ["apps/personal/src/styles.scss"],
+        "scripts": []
+      },
+      "configurations": {
+        "production": {
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "sourceMap": true,
+          "namedChunks": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "configurations": {
+        "production": { "buildTarget": "personal:build:production" },
+        "development": { "buildTarget": "personal:build:development" }
+      },
+      "defaultConfiguration": "development"
+    }
+  }
+}

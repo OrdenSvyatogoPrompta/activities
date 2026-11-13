@@ -1,0 +1,219 @@
+.auth-page {
+  min-height: 100vh;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 48px;
+
+  &__back {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--brand-orange);
+    text-decoration: none;
+    margin-bottom: 32px;
+
+    &:hover { opacity: 0.8; }
+  }
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.07);
+
+  &__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.03em;
+    margin: 0 0 4px;
+  }
+
+  &__sub {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0 0 24px;
+  }
+
+  &__footer {
+    text-align: center;
+    font-size: 13.5px;
+    color: #64748b;
+    margin: 20px 0 0;
+
+    a {
+      color: var(--brand-purple);
+      font-weight: 600;
+      text-decoration: none;
+      &:hover { text-decoration: underline; }
+    }
+  }
+
+  &__back-step {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 16px;
+    &:hover { color: #1e293b; }
+  }
+}
+
+// Переключатель Родитель / Организация (на логине)
+.role-tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 24px;
+  gap: 2px;
+}
+
+.role-tab {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &--active {
+    background: #fff;
+    color: #1e293b;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+}
+
+// Карточки выбора типа на регистрации
+.type-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: var(--brand-purple);
+    box-shadow: 0 0 0 3px var(--brand-purple-muted);
+  }
+
+  &__icon { font-size: 32px; line-height: 1; }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  &__desc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+  }
+}
+
+// Форма
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  &__label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  &__input {
+    padding: 9px 12px;
+    font-size: 14px;
+    color: #1e293b;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &::placeholder { color: #94a3b8; }
+
+    &:focus {
+      border-color: var(--brand-purple);
+      box-shadow: 0 0 0 3px var(--brand-purple-muted);
+    }
+  }
+}
+
+.field-divider {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 0 2px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.auth-error {
+  font-size: 13px;
+  color: #ef4444;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 11px;
+  background: var(--brand-purple);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: 0.01em;
+
+  &:hover { background: var(--brand-purple-hover); transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+}
