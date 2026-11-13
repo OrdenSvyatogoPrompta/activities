@@ -1,340 +1,44 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, of } from 'rxjs';
 
+import { ApiClient, LoadStatus } from '../api/api-client';
+import { toApiError } from '../api/api-error';
 import { Club } from '../models/club.model';
 
-const CLUBS: Club[] = [
-  {
-    id: 'swimming-dyush',
-    name: 'Плавание · ДЮСШ №1',
-    categories: ['Спорт'],
-    emoji: '🏊',
-    color: '#0ea5e9',
-    shortDescription: 'Спортивное плавание для детей и подростков',
-    fullDescription:
-      'Секция спортивного плавания для детей и подростков всех уровней подготовки. Обучение техникам кроля, брасса, баттерфляя и на спине. Участие в городских и краевых соревнованиях. Опытные тренеры с опытом работы более 15 лет.',
-    age: '6–18 лет', ageMin: 6, ageMax: 18,
-    days: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср, Пт · 15:00–18:00 / Вт, Чт · 10:00–12:00',
-    address: 'ул. Борисенко, 100',
-    phone: '+7 423 222-11-00',
-    price: 'Бесплатно', priceAmount: 0, priceType: 'free',
-    tags: ['плавание', 'спорт', 'бассейн'],
-    branches: [
-      { id: 'borissenko', name: 'Борисенко', address: 'ул. Борисенко, 100', phone: '+7 423 222-11-00', schedule: 'Пн, Ср, Пт · 15:00–18:00\nВт, Чт · 10:00–12:00', days: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'] },
-      { id: 'vtoraya-rechka', name: 'Вторая Речка', address: 'ул. Нейбута, 32', phone: '+7 423 244-55-10', schedule: 'Пн, Ср, Пт · 16:00–19:00', days: ['Пн', 'Ср', 'Пт'] },
-      { id: 'snegovaya', name: 'Снеговая', address: 'ул. Снеговая, 42б', phone: '+7 423 265-33-20', schedule: 'Вт, Чт, Сб · 09:00–12:00', days: ['Вт', 'Чт', 'Сб'] },
-    ],
-  },
-  {
-    id: 'akvarell',
-    name: 'Акварель',
-    categories: ['Творчество'],
-    emoji: '🎨',
-    color: '#f59e0b',
-    shortDescription: 'Студия рисования акварелью и маслом',
-    fullDescription:
-      'Художественная студия для детей, где каждый откроет в себе талант. Занятия акварелью, гуашью, пастелью. Небольшие группы — индивидуальный подход к каждому ученику. Участие в городских выставках и всероссийских конкурсах.',
-    age: '5–14 лет', ageMin: 5, ageMax: 14,
-    days: ['Вт', 'Чт', 'Сб'],
-    visitType: 'both',
-    schedule: 'Вт, Чт · 15:30–17:30, Сб · 10:00–12:00',
-    address: 'пр. Океанский, 44',
-    phone: '+7 423 243-55-20',
-    price: '2 500 ₽ / мес', priceAmount: 2500, priceType: 'pushkin',
-    tags: ['рисование', 'акварель', 'творчество'],
-  },
-  {
-    id: 'technar',
-    name: 'Технарь',
-    categories: ['Наука'],
-    emoji: '🤖',
-    color: '#6366f1',
-    shortDescription: 'Робототехника и программирование с нуля',
-    fullDescription:
-      'Клуб робототехники для детей. Строим роботов на LEGO Mindstorms и Arduino, программируем на Scratch и Python. Участие в соревнованиях WRO и РобоФест. Дети с нуля учатся думать алгоритмически и создавать технические проекты.',
-    age: '8–16 лет', ageMin: 8, ageMax: 16,
-    days: ['Сб', 'Вс'],
-    visitType: 'recurring',
-    schedule: 'Сб, Вс · 11:00–14:00',
-    address: 'ул. Светланская, 83',
-    phone: '+7 924 100-20-30',
-    price: '3 000 ₽ / мес', priceAmount: 3000, priceType: 'paid',
-    tags: ['робототехника', 'программирование', 'LEGO'],
-  },
-  {
-    id: 'priboi',
-    name: 'Прибой',
-    categories: ['Танцы'],
-    emoji: '💃',
-    color: '#8b5cf6',
-    shortDescription: 'Студия современного танца и хореографии',
-    fullDescription:
-      'Студия танцев «Прибой» — hip-hop, contemporary, jazz funk и брейкинг. Регулярные выступления на городских мероприятиях. Набор в группы по возрасту и уровню подготовки. Два раза в год — большой отчётный концерт.',
-    age: '7–17 лет', ageMin: 7, ageMax: 17,
-    days: ['Пн', 'Ср', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср, Пт · 16:00–18:30',
-    address: 'ул. Суханова, 3а',
-    phone: '+7 924 200-30-40',
-    price: '2 800 ₽ / мес', priceAmount: 2800, priceType: 'paid',
-    tags: ['танцы', 'hip-hop', 'contemporary'],
-  },
-  {
-    id: 'tiger-chess',
-    name: 'Шахматный клуб Тигр',
-    categories: ['Наука'],
-    emoji: '♟️',
-    color: '#475569',
-    shortDescription: 'Шахматы для начинающих и опытных игроков',
-    fullDescription:
-      'Шахматный клуб для детей и взрослых. Занятия ведут мастера ФИДЕ. Индивидуальные и групповые тренировки, онлайн-разбор партий. Участие в городских и краевых турнирах. Шахматы развивают логику, внимание и стратегическое мышление.',
-    age: '6–18 лет', ageMin: 6, ageMax: 18,
-    days: ['Вт', 'Чт', 'Сб'],
-    visitType: 'both',
-    schedule: 'Вт, Чт, Сб · 14:00–17:00',
-    address: 'ул. Пушкинская, 23',
-    phone: '+7 423 231-10-05',
-    price: '1 800 ₽ / мес', priceAmount: 1800, priceType: 'paid',
-    tags: ['шахматы', 'логика', 'турниры'],
-  },
-  {
-    id: 'nota',
-    name: 'Нота',
-    categories: ['Музыка'],
-    emoji: '🎵',
-    color: '#ec4899',
-    shortDescription: 'Вокальная студия для детей и подростков',
-    fullDescription:
-      'Вокальная студия «Нота» — эстрадный и академический вокал, постановка голоса, работа с микрофоном. Участие в городских конкурсах, концерты для родителей. Занятия ведут профессиональные педагоги с консерваторским образованием.',
-    age: '7–16 лет', ageMin: 7, ageMax: 16,
-    days: ['Пн', 'Ср', 'Сб'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср · 16:00–19:00, Сб · 11:00–14:00',
-    address: 'пр. Красного Знамени, 55',
-    phone: '+7 924 300-40-50',
-    price: '2 500 ₽ / мес', priceAmount: 2500, priceType: 'pushkin',
-    tags: ['вокал', 'музыка', 'пение'],
-  },
-  {
-    id: 'judo-vostok',
-    name: 'Дзюдо · Восток',
-    categories: ['Спорт'],
-    emoji: '🥋',
-    color: '#10b981',
-    shortDescription: 'Секция дзюдо с опытными тренерами',
-    fullDescription:
-      'Спортивная секция дзюдо для детей и подростков. Тренировки по основам дзюдо, физическая подготовка, участие в соревнованиях регионального и федерального уровней. Первый год — ОФП и базовые приёмы, никакого форсирования.',
-    age: '8–18 лет', ageMin: 8, ageMax: 18,
-    days: ['Вт', 'Чт', 'Сб'],
-    visitType: 'recurring',
-    schedule: 'Вт, Чт, Сб · 10:00–12:00',
-    address: 'ул. Калинина, 15',
-    phone: '+7 423 265-70-80',
-    price: 'Бесплатно', priceAmount: 0, priceType: 'free',
-    tags: ['дзюдо', 'единоборства', 'спорт'],
-  },
-  {
-    id: 'maski',
-    name: 'Маски',
-    categories: ['Творчество'],
-    emoji: '🎭',
-    color: '#f97316',
-    shortDescription: 'Театральная студия для детей',
-    fullDescription:
-      'Театральная студия «Маски» — актёрское мастерство, сценическая речь, пластика и импровизация. Ставим спектакли, участвуем в театральных фестивалях. Создаём атмосферу настоящего театра для каждого ребёнка с первого занятия.',
-    age: '9–17 лет', ageMin: 9, ageMax: 17,
-    days: ['Пн', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Пт · 15:00–18:00',
-    address: 'ул. Алеутская, 17',
-    phone: '+7 423 280-90-10',
-    price: '2 000 ₽ / мес', priceAmount: 2000, priceType: 'pushkin',
-    tags: ['театр', 'актёрство', 'сцена'],
-  },
-  {
-    id: 'english-club',
-    name: 'English Club VL',
-    categories: ['Наука'],
-    emoji: '🗣️',
-    color: '#0891b2',
-    shortDescription: 'Разговорный английский в живом формате',
-    fullDescription:
-      'Разговорный клуб английского языка. Занятия в формате дискуссий, игр и проектов на английском. Уровни от A1 до C1. Носители языка и сертифицированные преподаватели. Подготовка к ЕГЭ и международным экзаменам IELTS, TOEFL.',
-    age: '8–16 лет', ageMin: 8, ageMax: 16,
-    days: ['Вт', 'Пт'],
-    visitType: 'both',
-    schedule: 'Вт, Пт · 16:00–18:00',
-    address: 'ул. Мордовцева, 3',
-    phone: '+7 924 400-50-60',
-    price: '3 500 ₽ / мес', priceAmount: 3500, priceType: 'paid',
-    tags: ['английский', 'языки', 'разговор'],
-  },
-  {
-    id: 'gimnastika-voskhod',
-    name: 'Восход',
-    categories: ['Спорт'],
-    emoji: '🤸',
-    color: '#f43f5e',
-    shortDescription: 'Художественная гимнастика для девочек',
-    fullDescription:
-      'Секция художественной гимнастики для девочек. Развиваем гибкость, координацию, музыкальность и изящество. Работа с обручем, лентой, мячом и скакалкой. Участие в городских и краевых соревнованиях по художественной гимнастике.',
-    age: '5–14 лет', ageMin: 5, ageMax: 14,
-    days: ['Пн', 'Ср', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср, Пт · 16:00–19:00',
-    address: 'ул. Нейбута, 85',
-    phone: '+7 423 290-10-20',
-    price: '2 200 ₽ / мес', priceAmount: 2200, priceType: 'paid',
-    tags: ['гимнастика', 'спорт', 'девочки'],
-  },
-  {
-    id: 'rock-n-roll',
-    name: 'Акробатический рок-н-ролл',
-    categories: ['Танцы', 'Спорт'],
-    emoji: '🕺',
-    color: '#e11d48',
-    shortDescription: 'Танец и акробатика — спорт высших достижений',
-    fullDescription:
-      'Акробатический рок-н-ролл — это вид спорта, где хореография встречается с акробатикой. Занятия развивают силу, гибкость, чувство ритма и умение работать в паре. Участие в региональных и всероссийских соревнованиях.',
-    age: '6–18 лет', ageMin: 6, ageMax: 18,
-    days: ['Пн', 'Ср', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср, Пт · 17:00–20:00',
-    address: 'ул. Верхнепортовая, 76',
-    phone: '+7 924 500-60-70',
-    price: '3 200 ₽ / мес', priceAmount: 3200, priceType: 'paid',
-    tags: ['рок-н-ролл', 'акробатика', 'парный танец'],
-  },
-  {
-    id: 'musical-theater',
-    name: 'Музыкальный театр',
-    categories: ['Музыка', 'Творчество'],
-    emoji: '🎼',
-    color: '#7c3aed',
-    shortDescription: 'Вокал, актёрство и сцена в одном месте',
-    fullDescription:
-      'Студия музыкального театра — уникальное сочетание вокала, актёрского мастерства и хореографии. Ставим мюзиклы и музыкальные спектакли. Принимаем участие в городских фестивалях и конкурсах. Пушкинская карта принимается.',
-    age: '9–18 лет', ageMin: 9, ageMax: 18,
-    days: ['Вт', 'Чт', 'Сб'],
-    visitType: 'recurring',
-    schedule: 'Вт, Чт · 16:00–19:30, Сб · 12:00–15:00',
-    address: 'ул. Пушкинская, 1',
-    phone: '+7 423 310-20-30',
-    price: '2 800 ₽ / мес', priceAmount: 2800, priceType: 'pushkin',
-    tags: ['мюзикл', 'вокал', 'театр'],
-  },
-  {
-    id: 'karate',
-    name: 'Каратэ Владивосток',
-    categories: ['Спорт'],
-    emoji: '🥊',
-    color: '#dc2626',
-    shortDescription: 'Секция каратэ для детей и взрослых',
-    fullDescription: 'Секция каратэ стиля Шотокан. Тренировки по технике, физической подготовке и кумитэ. Разрядные соревнования, чемпионаты края. Дисциплина, уважение, сила духа — основа наших тренировок.',
-    age: '6–18 лет', ageMin: 6, ageMax: 18,
-    days: ['Пн', 'Ср', 'Пт'],
-    visitType: 'recurring',
-    schedule: 'Пн, Ср, Пт · 17:00–19:00',
-    address: 'ул. Тихоокеанская, 21',
-    phone: '+7 924 600-10-20',
-    price: 'Бесплатно', priceAmount: 0, priceType: 'free',
-    tags: ['каратэ', 'единоборства', 'спорт'],
-  },
-  {
-    id: 'pottery',
-    name: 'Гончарная мастерская',
-    categories: ['Творчество'],
-    emoji: '🏺',
-    color: '#b45309',
-    shortDescription: 'Лепка из глины на гончарном круге',
-    fullDescription: 'Мастерская гончарного искусства. Учим работать с глиной руками и на круге, обжигаем изделия в печи, покрываем глазурью. Каждый унесёт домой свою работу. Занятия для детей и взрослых.',
-    age: '7–99 лет', ageMin: 7, ageMax: 99,
-    days: ['Сб', 'Вс'],
-    visitType: 'both',
-    schedule: 'Сб, Вс · 11:00–14:00',
-    address: 'ул. Алеутская, 45а',
-    phone: '+7 924 700-20-30',
-    price: '3 200 ₽ / мес', priceAmount: 3200, priceType: 'paid',
-    tags: ['гончарство', 'глина', 'творчество'],
-  },
-  {
-    id: 'coding',
-    name: 'Code Kids',
-    categories: ['Наука'],
-    emoji: '💻',
-    color: '#059669',
-    shortDescription: 'Программирование для детей на Scratch и Python',
-    fullDescription: 'Школа программирования для детей. Начинаем со Scratch, переходим на Python. Создаём игры, сайты, автоматизируем скучные задачи. Небольшие группы — не более 8 человек. Онлайн и офлайн форматы.',
-    age: '8–16 лет', ageMin: 8, ageMax: 16,
-    days: ['Вт', 'Пт', 'Сб'],
-    visitType: 'both',
-    schedule: 'Вт, Пт · 16:00–18:00, Сб · 10:00–12:00',
-    address: 'ул. Светланская, 11',
-    phone: '+7 924 800-30-40',
-    price: '3 500 ₽ / мес', priceAmount: 3500, priceType: 'paid',
-    tags: ['программирование', 'Scratch', 'Python'],
-  },
-  {
-    id: 'yoga-kids',
-    name: 'Йога для детей',
-    categories: ['Спорт'],
-    emoji: '🧘',
-    color: '#7c3aed',
-    shortDescription: 'Детская йога — гибкость, дыхание, спокойствие',
-    fullDescription: 'Занятия детской йогой в игровой форме. Развиваем гибкость, координацию, умение управлять телом и дыханием. Снимаем стресс, улучшаем концентрацию. Занятия ведут сертифицированные инструкторы.',
-    age: '4–12 лет', ageMin: 4, ageMax: 12,
-    days: ['Вт', 'Чт', 'Сб'],
-    visitType: 'both',
-    schedule: 'Вт, Чт · 10:00–11:00, Сб · 09:00–10:00',
-    address: 'пр. Океанский, 101',
-    phone: '+7 924 900-40-50',
-    price: '2 000 ₽ / мес', priceAmount: 2000, priceType: 'paid',
-    tags: ['йога', 'гибкость', 'спокойствие'],
-  },
-  {
-    id: 'guitar',
-    name: 'Гитара с нуля',
-    categories: ['Музыка'],
-    emoji: '🎸',
-    color: '#d97706',
-    shortDescription: 'Акустическая и электрогитара для начинающих',
-    fullDescription: 'Индивидуальные и групповые занятия на акустической и электрогитаре. За три месяца научим играть первые песни. Работаем с любым возрастом. Гитары предоставляются на занятиях.',
-    age: '8–99 лет', ageMin: 8, ageMax: 99,
-    days: ['Пн', 'Ср', 'Пт', 'Сб'],
-    visitType: 'oneTime',
-    schedule: 'По договорённости',
-    address: 'ул. Пушкинская, 36',
-    phone: '+7 924 010-50-60',
-    price: '2 800 ₽ / мес', priceAmount: 2800, priceType: 'paid',
-    tags: ['гитара', 'музыка', 'начинающие'],
-  },
-  {
-    id: 'origami',
-    name: 'Оригами и бумагопластика',
-    categories: ['Творчество', 'Наука'],
-    emoji: '🦢',
-    color: '#0891b2',
-    shortDescription: 'Искусство складывания бумаги и пространственное мышление',
-    fullDescription: 'Занятия оригами развивают мелкую моторику, пространственное мышление и усидчивость. От классических журавликов до сложных модульных фигур. Участие в городских выставках оригами.',
-    age: '5–14 лет', ageMin: 5, ageMax: 14,
-    days: ['Ср', 'Пт'],
-    visitType: 'both',
-    schedule: 'Ср, Пт · 15:00–17:00',
-    address: 'ул. Верхнепортовая, 10',
-    phone: '+7 924 020-60-70',
-    price: '1 500 ₽ / мес', priceAmount: 1500, priceType: 'pushkin',
-    tags: ['оригами', 'бумага', 'моторика'],
-  },
-];
-
+/**
+ * Каталог кружков. Весь опубликованный каталог приходит одним списком (`GET /api/clubs`)
+ * и кешируется в signal — фильтрация идёт на клиенте.
+ */
 @Injectable({ providedIn: 'root' })
 export class ClubsService {
-  getAll(): Club[] {
-    return CLUBS;
+  private readonly api = inject(ApiClient);
+
+  readonly clubs  = signal<Club[]>([]);
+  readonly status = signal<LoadStatus>('idle');
+  readonly error  = signal('');
+
+  /** Загружает каталог один раз; `force` — перезагрузить (например, после ошибки). */
+  load(force = false): void {
+    const status = this.status();
+    if (status === 'loading' || (status === 'loaded' && !force)) return;
+    this.status.set('loading');
+    this.error.set('');
+    this.api.get<Club[]>('/clubs').subscribe({
+      next: clubs => {
+        this.clubs.set(clubs);
+        this.status.set('loaded');
+      },
+      error: (err: unknown) => {
+        this.error.set(toApiError(err, 'Не удалось загрузить каталог').message);
+        this.status.set('error');
+      },
+    });
   }
 
-  getById(id: string): Club | undefined {
-    return CLUBS.find((c) => c.id === id);
+  /** Кружок по slug: из кеша каталога, если он уже загружен, иначе `GET /api/clubs/{slug}`. */
+  getBySlug(slug: string): Observable<Club> {
+    const cached = this.clubs().find(c => c.id === slug);
+    if (cached) return of(cached);
+    return this.api.get<Club>(`/clubs/${encodeURIComponent(slug)}`);
   }
 }

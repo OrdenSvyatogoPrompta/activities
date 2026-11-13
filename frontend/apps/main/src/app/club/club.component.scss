@@ -215,6 +215,7 @@
 }
 
 .cta-section {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -475,4 +476,8 @@
     color: #fff;
     border-color: var(--brand-purple);
   }
+}
+
+.sheet__error {
+  margin-bottom: 14px;
 }

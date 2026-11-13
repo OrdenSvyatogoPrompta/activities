@@ -6,13 +6,22 @@ export type DayOfWeek = 'Пн' | 'Вт' | 'Ср' | 'Чт' | 'Пт' | 'Сб' | '�
 
 export type VisitType = 'recurring' | 'oneTime' | 'both';
 
+/** Слот расписания: день недели и время `HH:MM`. */
+export interface ScheduleSlot {
+  day: DayOfWeek;
+  timeFrom: string;
+  timeTo: string;
+}
+
 export interface Branch {
   id: string;
   name: string;
   address: string;
   phone: string;
+  /** Человекочитаемое расписание (формирует сервер, группы через `\n`). */
   schedule: string;
-  days?: DayOfWeek[];
+  days: DayOfWeek[];
+  slots: ScheduleSlot[];
 }
 
 export interface Club {
@@ -35,5 +44,6 @@ export interface Club {
   priceAmount: number;
   priceType: PriceType;
   tags: string[];
-  branches?: Branch[];
+  /** Всегда ≥ 1 филиала; `address/phone/schedule` верхнего уровня — данные первого. */
+  branches: Branch[];
 }

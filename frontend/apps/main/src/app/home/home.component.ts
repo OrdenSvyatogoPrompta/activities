@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 
 import { ClubCategory, DayOfWeek, PriceType, VisitType } from '../models/club.model';
+import { AuthService } from '../services/auth.service';
 import { ClubsService } from '../services/clubs.service';
 
 const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
@@ -56,7 +57,11 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <button class="header__search-clear" (click)="searchQuery.set('')">✕</button>
               }
             </div>
-            <a class="header__auth" routerLink="/auth/login">Войти</a>
+            @if (authService.user()) {
+              <a class="header__auth" routerLink="/personal">Мой аккаунт</a>
+            } @else {
+              <a class="header__auth" routerLink="/auth/login">Войти</a>
+            }
           </div>
         </header>
 
@@ -135,7 +140,18 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
       </div>
 
       <div class="grid-wrap">
-        @if (filteredClubs().length === 0) {
+        @if (clubsService.status() === 'loading' && clubsService.clubs().length === 0) {
+          <div class="state">
+            <div class="spinner"></div>
+            <span>Загружаем кружки…</span>
+          </div>
+        } @else if (clubsService.status() === 'error') {
+          <div class="state">
+            <div class="empty__icon">⚠️</div>
+            <span>{{ clubsService.error() }}</span>
+            <button class="state__retry" (click)="clubsService.load(true)">Повторить</button>
+          </div>
+        } @else if (filteredClubs().length === 0) {
           <div class="empty">
             <div class="empty__icon">🔍</div>
             <div class="empty__text">Ничего не найдено</div>
@@ -231,7 +247,8 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
   `,
 })
 export class HomeComponent {
-  private readonly clubsService = inject(ClubsService);
+  readonly clubsService = inject(ClubsService);
+  readonly authService  = inject(AuthService);
 
   readonly AGE_MIN    = AGE_MIN;
   readonly AGE_MAX    = AGE_MAX;
@@ -282,7 +299,7 @@ export class HomeComponent {
     const filterByCat = cats.size > 0 && cats.size < CATEGORIES.length;
     const selDays = this.selectedDays();
     const vtf = this.visitTypeFilter();
-    return this.clubsService.getAll().filter((club) => {
+    return this.clubsService.clubs().filter((club) => {
       if (filterByCat && !club.categories.some(c => cats.has(c))) return false;
       if (selDays.size > 0 && !club.days.some(d => selDays.has(d))) return false;
       if (vtf === 'recurring' && club.visitType === 'oneTime') return false;
@@ -325,6 +342,10 @@ export class HomeComponent {
   readonly hasActiveFilters = computed(() =>
     this.searchQuery() !== '' || this.selectedCategories().size > 0 || this.hasSecondaryFilters(),
   );
+
+  constructor() {
+    this.clubsService.load();
+  }
 
   toggleDay(day: DayOfWeek): void {
     const next = new Set(this.selectedDays());
