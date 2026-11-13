@@ -1,9 +1,8 @@
-# HTTPS-терминатор: сам получает и продлевает сертификат Let's Encrypt для $DOMAIN,
-# с http:// перенаправляет на https://
+# HTTPS-терминатор с самоподписанным сертификатом: Caddy сам создаёт локальный CA
+# (хранится в томе caddy-data) и выпускает сертификат для $DOMAIN (домен или IP).
+# HSTS не включаем: с самоподписанным сертификатом он заблокирует сайт в браузере.
 {$DOMAIN} {
-	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		-Server
-	}
+	tls internal
+	header -Server
 	reverse_proxy web:8080
 }
