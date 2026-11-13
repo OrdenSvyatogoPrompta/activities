@@ -70,7 +70,7 @@ Three specifics worth spelling out, because they are easy to get wrong:
   terminal by default, which hangs a non-interactive shell. If a maker still
   needs interactive input, hand-write the code instead.
 - If Doctrine ORM is installed, schema changes go through migrations
-  (`bin/console make:migration`, then `doctrine:migrations:migrate`), never
+  (`bin/console doctrine:migrations:diff`, then `doctrine:migrations:migrate`), never
   `doctrine:schema:update` or hand-written SQL.
 - `.env` is committed and holds defaults only. Real secrets belong in `.env.local`
   (git-ignored) or the secrets vault (`bin/console secrets:set`), read via

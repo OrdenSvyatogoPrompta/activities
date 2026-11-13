@@ -37,7 +37,7 @@ backend-deps:
 		lexik/jwt-authentication-bundle gesdinet/jwt-refresh-token-bundle
 	$(BACKEND_RUN) composer require --dev \
 		symfony/test-pack doctrine/doctrine-fixtures-bundle dama/doctrine-test-bundle \
-		symfony/maker-bundle friendsofphp/php-cs-fixer
+		friendsofphp/php-cs-fixer
 
 # Ключи JWT для dev (config/jwt/, в git не попадают); существующие не перезаписываются
 jwt-keys:
@@ -51,7 +51,7 @@ console:
 
 # Сгенерировать миграцию по изменениям сущностей
 db-migration:
-	$(BACKEND_EXEC) bin/console make:migration --no-interaction
+	$(BACKEND_EXEC) bin/console doctrine:migrations:diff --no-interaction
 
 # Применить миграции к dev-базе
 db-migrate:
