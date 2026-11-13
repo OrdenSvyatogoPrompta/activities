@@ -1,15 +1,19 @@
-NODE := docker run --rm -v $(CURDIR):/app -v angular-cache:/app/frontend/.angular -w /app/frontend node:22-alpine
+COMPOSE := docker compose
 
 .PHONY: install build start stop
 
 install:
-	$(NODE) corepack yarn install
+	$(COMPOSE) run --rm --no-deps frontend corepack yarn install
+	$(COMPOSE) run --rm --no-deps backend composer install
 
-build:
-	$(NODE) corepack yarn build
+# Полная сборка: зависимости (install), образы, production-версия фронта в ./public
+build: install
+	$(COMPOSE) build
+	$(COMPOSE) run --rm --no-deps frontend corepack yarn build
 
 start:
-	docker compose up -d --build
+	@test -d frontend/node_modules -a -d backend/vendor || { echo "Зависимости не установлены — сначала выполните make install"; exit 1; }
+	$(COMPOSE) up -d --no-build
 
 stop:
-	docker compose down
+	$(COMPOSE) down

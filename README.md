@@ -6,22 +6,23 @@ Angular-фронтенд + Symfony-бэкенд + MySQL, всё запускае
 ## Быстрый старт
 
 ```bash
+make build   # зависимости + образы + сборка фронта
 make start
 ```
 
 - Фронт: http://localhost:8080
 - API: http://localhost:8080/api/ping
 
-Первый запуск занимает несколько минут: контейнеры ставят зависимости (`yarn install`, `composer install`) и компилируют фронт.
+Сборка и запуск разделены: `make start` (`docker compose up`) ничего не собирает и не ставит, а только запускает уже подготовленное. Если зависимости не установлены, `make start` остановится и попросит выполнить `make install` (или `make build`).
 
 ## Make-таргеты
 
-| Команда | Что делает |
-|---|---|
-| `make start` | Собирает образы и поднимает всё окружение в фоне (`docker compose up -d --build`) |
-| `make stop` | Останавливает и удаляет контейнеры (`docker compose down`), данные MySQL сохраняются |
-| `make install` | Ставит зависимости фронта (`yarn install`) в контейнере `node:22-alpine` |
-| `make build` | Собирает production-версию фронта (`yarn build`) в `./public` |
+| Команда        | Что делает |
+|----------------|---|
+| `make build`   | Полная сборка: сначала `make install`, затем образы (`docker compose build`) и production-версия фронта (`yarn build`) в `./public` |
+| `make install` | Ставит зависимости фронта (`yarn install`) и бэкенда (`composer install`) |
+| `make start`   | Поднимает окружение в фоне из готовых образов (`docker compose up -d --no-build`) |
+| `make stop`    | Останавливает и удаляет контейнеры (`docker compose down`), данные MySQL сохраняются |
 
 ## Как устроено
 
