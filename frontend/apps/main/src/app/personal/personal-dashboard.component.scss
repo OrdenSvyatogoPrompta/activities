@@ -344,14 +344,37 @@
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
 
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
   &__month {
+    min-width: 130px;
+    text-align: center;
     font-size: 14px;
     font-weight: 700;
     color: #1e293b;
     text-transform: capitalize;
-    margin-bottom: 12px;
     letter-spacing: -0.01em;
   }
+
+  &__arrow {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    &:hover { background: #e2e8f0; }
+  }
+
+  &__today { margin-left: auto; }
 
   &__grid {
     display: grid;

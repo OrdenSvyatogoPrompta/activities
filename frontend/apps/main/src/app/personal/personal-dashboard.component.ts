@@ -95,11 +95,18 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 
             @if (enrollView() === 'calendar') {
               <div class="cal">
-                <div class="cal__month">{{ calendarDays().monthLabel }}</div>
+                <div class="cal__nav">
+                  <button class="cal__arrow" aria-label="Предыдущий месяц" (click)="monthOffset.update(m => m - 1)">‹</button>
+                  <span class="cal__month">{{ calendarDays().monthLabel }}</span>
+                  <button class="cal__arrow" aria-label="Следующий месяц" (click)="monthOffset.update(m => m + 1)">›</button>
+                  @if (monthOffset() !== 0) {
+                    <button class="btn-link cal__today" (click)="monthOffset.set(0)">Сегодня</button>
+                  }
+                </div>
                 <div class="cal__grid">
                   @for (h of weekDays; track h) { <div class="cal__head">{{ h }}</div> }
                   @for (day of calendarDays().days; track $index) {
-                    <div class="cal__day" [class.cal__day--today]="day.date === today">
+                    <div class="cal__day" [class.cal__day--today]="day.today">
                       @if (day.date) {
                         <span class="cal__num">{{ day.date }}</span>
                         @for (ev of day.events.slice(0, maxDayEvents); track $index) {
@@ -378,7 +385,7 @@ export class PersonalDashboardComponent {
   readonly activityStatusLabel   = ACTIVITY_STATUS_LABEL;
   readonly yearsLabel = yearsLabel;
   readonly canCancel  = isActiveEnrollment;
-  readonly today    = new Date().getDate();
+  readonly monthOffset = signal(0);
 
   /** id заявки или ребёнка, по которому идёт запрос. */
   readonly busyId     = signal<string | null>(null);
@@ -416,18 +423,20 @@ export class PersonalDashboardComponent {
 
   readonly calendarDays = computed(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year, month, 1);
+    const firstDay = new Date(now.getFullYear(), now.getMonth() + this.monthOffset(), 1);
+    const year = firstDay.getFullYear();
+    const month = firstDay.getMonth();
     const lastDay = new Date(year, month + 1, 0);
+    const isCurrentMonth = this.monthOffset() === 0;
     const startOffset = (firstDay.getDay() + 6) % 7;
     const enrollments = this.activeEnrollments();
-    const days: Array<{ date: number | null; events: CalendarEvent[] }> = [];
-    for (let i = 0; i < startOffset; i++) days.push({ date: null, events: [] });
+    const days: Array<{ date: number | null; today: boolean; events: CalendarEvent[] }> = [];
+    for (let i = 0; i < startOffset; i++) days.push({ date: null, today: false, events: [] });
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const weekday = DAY_NAMES[new Date(year, month, d).getDay()];
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const events = enrollments
-        .filter(e => e.days.includes(weekday))
+        .filter(e => e.days.includes(weekday) && e.enrolledAt <= iso)
         .map(e => ({
           who: e.forChild ? e.forChild.firstName[0] : 'Я',
           label: e.clubName.split(' · ')[0],
@@ -435,7 +444,7 @@ export class PersonalDashboardComponent {
           color: e.color,
           pending: e.status === 'pending',
         }));
-      days.push({ date: d, events });
+      days.push({ date: d, today: isCurrentMonth && d === now.getDate(), events });
     }
     return { days, monthLabel: firstDay.toLocaleString('ru', { month: 'long', year: 'numeric' }) };
   });
