@@ -4,10 +4,27 @@
   box-sizing: border-box;
 }
 
+:root {
+  --brand-orange: #f25e02;
+  --brand-purple: #6880f8;
+  --brand-purple-hover: #5a6de8;
+  --brand-purple-muted: #6880f81a;
+  --brand-orange-muted: #f25e021a;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
 }
