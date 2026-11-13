@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ClubCategory, PriceType } from '../models/club.model';
+import { ClubCategory, DayOfWeek, PriceType, VisitType } from '../models/club.model';
 import { ClubsService } from '../services/clubs.service';
 
 const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
@@ -10,6 +10,7 @@ const CATEGORY_EMOJI: Record<ClubCategory, string> = {
   Спорт: '🏃', Творчество: '🎨', Наука: '🔬', Музыка: '🎵', Танцы: '💃',
 };
 const AGES = Array.from({ length: 15 }, (_, i) => i + 4); // 4..18
+const DAYS: DayOfWeek[] = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const AGE_MIN = 0;
 const AGE_MAX = 18;
 const PRICE_MIN = 0;
@@ -48,7 +49,7 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input class="header__search-input" type="text" placeholder="Поиск кружков..."
+              <input class="header__search-input" type="text" placeholder="Поиск..."
                 [value]="searchQuery()"
                 (input)="searchQuery.set($any($event.target).value)" />
               @if (searchQuery()) {
@@ -106,10 +107,26 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <ng-container *ngTemplateOutlet="priceSliderTpl"></ng-container>
               }
             </div>
-            <div class="filter-panel__divider"></div>
             <div class="filter-section">
-              <span class="filter-section__title">Диапазон возраста</span>
+              <span class="filter-section__title">Возраст</span>
               <ng-container *ngTemplateOutlet="ageSliderTpl"></ng-container>
+            </div>
+            <div class="filter-section">
+              <span class="filter-section__title">Дни недели</span>
+              <div class="filter-section__tags">
+                @for (day of days; track day) {
+                  <button class="ftag"
+                    [class.ftag--active]="selectedDays().has(day)"
+                    (click)="toggleDay(day)">{{ day }}</button>
+                }
+              </div>
+              <span class="filter-section__title" style="margin-top:4px">Формат</span>
+              <div class="filter-section__tags">
+                <button class="ftag" [class.ftag--active]="visitTypeFilter() === 'recurring'"
+                  (click)="toggleVisitType('recurring')">Постоянный</button>
+                <button class="ftag" [class.ftag--active]="visitTypeFilter() === 'oneTime'"
+                  (click)="toggleVisitType('oneTime')">Разовое</button>
+              </div>
             </div>
           </div>
           <div class="backdrop" (click)="filtersOpen.set(false)"></div>
@@ -226,10 +243,13 @@ export class HomeComponent {
   readonly categoryBadge = CATEGORY_BADGE;
   readonly catEmoji      = CATEGORY_EMOJI;
   readonly ages          = AGES;
+  readonly days          = DAYS;
 
   readonly searchQuery         = signal('');
   readonly selectedCategories  = signal<Set<ClubCategory>>(new Set());
   readonly quickAge            = signal<number | null>(null);
+  readonly selectedDays        = signal<Set<DayOfWeek>>(new Set());
+  readonly visitTypeFilter     = signal<VisitType | null>(null);
   readonly priceType        = signal<PriceType | null>(null);
   readonly priceFrom        = signal<number | null>(null);
   readonly priceTo          = signal<number | null>(null);
@@ -260,8 +280,13 @@ export class HomeComponent {
 
     const cats = this.selectedCategories();
     const filterByCat = cats.size > 0 && cats.size < CATEGORIES.length;
+    const selDays = this.selectedDays();
+    const vtf = this.visitTypeFilter();
     return this.clubsService.getAll().filter((club) => {
       if (filterByCat && !club.categories.some(c => cats.has(c))) return false;
+      if (selDays.size > 0 && !club.days.some(d => selDays.has(d))) return false;
+      if (vtf === 'recurring' && club.visitType === 'oneTime') return false;
+      if (vtf === 'oneTime' && club.visitType === 'recurring') return false;
       if (q && !club.name.toLowerCase().includes(q) && !club.shortDescription.toLowerCase().includes(q)) return false;
       if (pt === 'free'    && club.priceType !== 'free')    return false;
       if (pt === 'pushkin' && club.priceType !== 'pushkin') return false;
@@ -283,7 +308,8 @@ export class HomeComponent {
 
   readonly hasSecondaryFilters = computed(() =>
     this.priceType() !== null || this.priceFrom() !== null || this.priceTo() !== null
-    || this.ageFrom() !== null || this.ageTo() !== null || this.quickAge() !== null,
+    || this.ageFrom() !== null || this.ageTo() !== null || this.quickAge() !== null
+    || this.selectedDays().size > 0 || this.visitTypeFilter() !== null,
   );
 
   readonly activeSecondaryCount = computed(() => {
@@ -291,12 +317,24 @@ export class HomeComponent {
     if (this.priceType() !== null) n++;
     if (this.priceFrom() !== null || this.priceTo() !== null) n++;
     if (this.ageFrom() !== null || this.ageTo() !== null) n++;
+    if (this.selectedDays().size > 0) n++;
+    if (this.visitTypeFilter() !== null) n++;
     return n;
   });
 
   readonly hasActiveFilters = computed(() =>
     this.searchQuery() !== '' || this.selectedCategories().size > 0 || this.hasSecondaryFilters(),
   );
+
+  toggleDay(day: DayOfWeek): void {
+    const next = new Set(this.selectedDays());
+    if (next.has(day)) next.delete(day); else next.add(day);
+    this.selectedDays.set(next);
+  }
+
+  toggleVisitType(type: VisitType): void {
+    this.visitTypeFilter.set(this.visitTypeFilter() === type ? null : type);
+  }
 
   selectQuickAge(age: number): void {
     this.quickAge.set(this.quickAge() === age ? null : age);
@@ -349,6 +387,8 @@ export class HomeComponent {
     this.ageFrom.set(null);
     this.ageTo.set(null);
     this.quickAge.set(null);
+    this.selectedDays.set(new Set());
+    this.visitTypeFilter.set(null);
     this.filtersOpen.set(false);
   }
 }

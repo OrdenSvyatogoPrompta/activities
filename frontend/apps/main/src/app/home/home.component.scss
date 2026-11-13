@@ -18,10 +18,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 16px;
   height: 52px;
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
+  gap: 8px;
+  overflow: hidden;
 
   &__logo {
     font-size: 15px;
@@ -29,23 +31,32 @@
     color: var(--brand-orange);
     letter-spacing: -0.02em;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   &__city {
     font-weight: 400;
     font-size: 14px;
     color: #94a3b8;
+
+    // скрываем «· Владивосток» на совсем маленьких экранах
+    @media (max-width: 400px) { display: none; }
   }
 
   &__right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-shrink: 0;
+    min-width: 0;
   }
 
   &__search-wrap {
     position: relative;
-    width: 260px;
+    width: 220px;
+    max-width: 40vw;
+    min-width: 90px;
+    flex-shrink: 1;
   }
 
   &__search-icon {
@@ -166,35 +177,26 @@
 .discovery-bar {
   background: #fff;
   border-bottom: 1px solid #e2e8f0;
-  padding: 10px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 8px 16px;
 }
 
 .discovery-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  overflow: hidden;
 }
-
-.discovery-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  white-space: nowrap;
-  width: 60px;
-  flex-shrink: 0;
-}
-
 
 .cat-chips {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
   flex: 1;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  min-width: 0;
+
+  &::-webkit-scrollbar { display: none; }
 }
 
 .cat-chip {
@@ -240,39 +242,38 @@
   border-bottom: 1px solid #e2e8f0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
   z-index: 20;
+  overflow-y: auto;
+  max-height: 70vh;
+
   display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  padding: 16px 24px;
-  gap: 0;
-  row-gap: 12px;
+  flex-direction: column;
 
-  &__divider {
-    width: 1px;
-    align-self: stretch;
-    min-height: 24px;
-    background: #e2e8f0;
-    margin: 0 20px;
-    flex-shrink: 0;
+  @media (min-width: 860px) {
+    flex-direction: row;
+    align-items: stretch;
   }
 
-  &__count {
-    font-size: 12px;
-    color: #94a3b8;
-    font-weight: 500;
-  }
+  &::-webkit-scrollbar { width: 3px; }
+  &::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
 }
 
 .filter-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding: 14px 20px;
 
-  &--actions {
-    flex-direction: row;
-    align-items: center;
-    align-self: center;
-    margin-left: auto;
+  & + .filter-section {
+    border-top: 1px solid #f1f5f9;
+  }
+
+  @media (min-width: 860px) {
+    flex: 1;
+
+    & + .filter-section {
+      border-top: none;
+      border-left: 1px solid #e2e8f0;
+    }
   }
 
   &__title {
@@ -324,7 +325,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 220px;
+  width: 100%;
 }
 
 .dual-slider {
