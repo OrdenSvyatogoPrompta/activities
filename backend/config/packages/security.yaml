@@ -5,27 +5,65 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
+        # TODO(группа B): заменить на entity-провайдер, когда появится сущность App\Entity\User:
+        #     app_user_provider:
+        #         entity: { class: App\Entity\User, property: email }
+        # и указать его в firewalls.api.provider. Пустой in-memory провайдер нужен только
+        # для того, чтобы контейнер собирался: войти через него нельзя.
         users_in_memory: { memory: null }
+
+    role_hierarchy:
+        ROLE_ADMIN: ROLE_USER
 
     firewalls:
         dev:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler(/|$)|(_wdt|assets|build)/)
             security: false
-        main:
-            lazy: true
-            provider: users_in_memory
 
-            # Activate different ways to authenticate:
-            # https://symfony.com/doc/current/security.html#the-firewall
+        api:
+            pattern: ^/api
+            stateless: true
+            provider: users_in_memory # TODO(группа B): app_user_provider
 
-            # https://symfony.com/doc/current/security/impersonating_user.html
-            # switch_user: true
+            # Точек входа две (jwt и refresh_jwt), поэтому нужная указана явно: запрос без
+            # токена к защищённому маршруту получает 401 от JWT-аутентификатора
+            entry_point: jwt
+
+            # POST /api/auth/login { email, password } → access-токен в теле ответа,
+            # refresh-токен в cookie (её ставит gesdinet по событию успешного входа lexik)
+            json_login:
+                check_path: /api/auth/login
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+            # 5 попыток в минуту на пару email + IP
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
+
+            # POST /api/auth/refresh — refresh-токен из cookie; TTL и ротация —
+            # в gesdinet_jwt_refresh_token.yaml
+            refresh_jwt:
+                check_path: /api/auth/refresh
+
+            # Authorization: Bearer <access>
+            jwt: ~
+
+            # POST /api/auth/logout — gesdinet удаляет refresh-токен и чистит cookie.
+            # Маршрут создаёт security.route_loader.logout (config/routes/security.yaml)
+            logout:
+                path: /api/auth/logout
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/api/auth/(register|login|refresh)$, methods: [POST], roles: PUBLIC_ACCESS }
+        - { path: ^/api/clubs(/|$), methods: [GET, HEAD], roles: PUBLIC_ACCESS }
+        - { path: ^/api/ping$, methods: [GET, HEAD], roles: PUBLIC_ACCESS }
+        - { path: ^/api/admin(/|$), roles: ROLE_ADMIN }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
     security:
