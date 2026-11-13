@@ -38,9 +38,9 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
       <div class="sticky-top">
 
         <header class="header">
-          <span class="header__logo">
+          <a class="header__logo" routerLink="/" (click)="resetFilters()">
             Заодно <span class="header__city">· Владивосток</span>
-          </span>
+          </a>
           <div class="header__right">
             <div class="header__search-wrap">
               <svg class="header__search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
