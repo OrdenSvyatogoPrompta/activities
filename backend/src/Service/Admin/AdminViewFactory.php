@@ -32,7 +32,11 @@ final readonly class AdminViewFactory
     public function activities(array $activities): array
     {
         return array_map(
-            static fn (Activity $activity, ActivityResponse $response): ActivityView => new ActivityView($response, UserRefView::fromUser($activity->getOwner())),
+            static fn (Activity $activity, ActivityResponse $response): ActivityView => new ActivityView(
+                $response,
+                UserRefView::fromUser($activity->getOwner()),
+                $activity->getClub()?->isPublished(),
+            ),
             $activities,
             $this->activityResponses->createList($activities),
         );

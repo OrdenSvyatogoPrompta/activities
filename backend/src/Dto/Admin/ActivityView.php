@@ -7,13 +7,14 @@ namespace App\Dto\Admin;
 use App\Dto\Activity\ActivityResponse;
 
 /**
- * Формат активности организатора плюс `owner`.
+ * Формат активности организатора плюс `owner` и статус публикации её кружка.
  */
 final readonly class ActivityView implements \JsonSerializable
 {
     public function __construct(
         public ActivityResponse $activity,
         public UserRefView $owner,
+        public ?bool $clubIsPublished,
     ) {
     }
 
@@ -22,6 +23,6 @@ final readonly class ActivityView implements \JsonSerializable
      */
     public function jsonSerialize(): array
     {
-        return [...get_object_vars($this->activity), 'owner' => $this->owner];
+        return [...get_object_vars($this->activity), 'owner' => $this->owner, 'clubIsPublished' => $this->clubIsPublished];
     }
 }

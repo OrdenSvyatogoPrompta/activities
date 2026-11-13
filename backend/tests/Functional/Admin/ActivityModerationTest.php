@@ -47,6 +47,7 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame('Наука', $activity['category']);
         self::assertSame('🎲', $activity['emoji']);
         self::assertNull($activity['clubId']);
+        self::assertNull($activity['clubIsPublished']);
         self::assertNull($activity['moderationComment']);
         self::assertSame(6, $activity['ageMin']);
         self::assertSame(16, $activity['ageMax']);
@@ -81,6 +82,7 @@ final class ActivityModerationTest extends ApiTestCase
         $activity = $this->findByName($this->json(), 'Акварель');
         self::assertSame('approved', $activity['status']);
         self::assertSame('akvarel', $activity['clubId']);
+        self::assertTrue($activity['clubIsPublished']);
         self::assertCount(2, $activity['branches']);
         self::assertCount(4, $activity['enrollments']);
 
