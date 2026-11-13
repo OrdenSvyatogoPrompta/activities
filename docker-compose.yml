@@ -29,7 +29,8 @@ services:
     volumes:
       - ./backend:/var/www/backend
     environment:
-      DATABASE_URL: "mysql://activities:activities@mysql:3306/activities?serverVersion=8.4"
+      # В test-окружении Doctrine добавляет к имени базы суффикс _test → activities_test
+      DATABASE_URL: "mysql://activities:activities@mysql:3306/activities?serverVersion=8.4&charset=utf8mb4"
 
   mysql:
     image: mysql:8.4
