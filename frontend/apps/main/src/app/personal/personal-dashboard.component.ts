@@ -21,6 +21,7 @@ type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
 
 interface CalendarEvent {
+  who: string;
   label: string;
   title: string;
   color: string;
@@ -103,7 +104,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                         <span class="cal__num">{{ day.date }}</span>
                         @for (ev of day.events.slice(0, maxDayEvents); track $index) {
                           <span class="cal__event" [class.cal__event--pending]="ev.pending"
-                            [style.background]="ev.color" [title]="ev.title">{{ ev.label }}</span>
+                            [style.background]="ev.color" [title]="ev.title"><span class="cal__who">{{ ev.who }}</span>{{ ev.label }}</span>
                         }
                         @if (day.events.length > maxDayEvents) {
                           <span class="cal__more">+{{ day.events.length - maxDayEvents }}</span>
@@ -116,7 +117,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                   @for (e of activeEnrollments(); track e.id) {
                     <div class="cal__legend-item">
                       <span class="cal__dot" [class.cal__dot--pending]="e.status === 'pending'" [style.background]="e.color"></span>
-                      <span>{{ e.clubName }}{{ e.status === 'pending' ? ' · на рассмотрении' : '' }}</span>
+                      <span>{{ e.clubName }} — {{ participantName(e) }}{{ e.status === 'pending' ? ' · на рассмотрении' : '' }}</span>
                     </div>
                   }
                   @if (activeEnrollments().length === 0) {
@@ -407,6 +408,10 @@ export class PersonalDashboardComponent {
 
   readonly maxDayEvents = MAX_DAY_EVENTS;
 
+  participantName(e: Enrollment): string {
+    return e.forChild ? e.forChild.firstName : 'вы';
+  }
+
   readonly activeEnrollments = computed(() => this.enrollments.items().filter(isActiveEnrollment));
 
   readonly calendarDays = computed(() => {
@@ -424,8 +429,9 @@ export class PersonalDashboardComponent {
       const events = enrollments
         .filter(e => e.days.includes(weekday))
         .map(e => ({
+          who: e.forChild ? e.forChild.firstName[0] : 'Я',
           label: e.clubName.split(' · ')[0],
-          title: e.clubName + (e.status === 'pending' ? ' (на рассмотрении)' : ''),
+          title: `${e.clubName} — ${this.participantName(e)}` + (e.status === 'pending' ? ' (на рассмотрении)' : ''),
           color: e.color,
           pending: e.status === 'pending',
         }));
