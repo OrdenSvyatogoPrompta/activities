@@ -35,7 +35,7 @@
     "@nx/eslint-plugin": "22.7.5",
     "@nx/js": "22.7.5",
     "@nx/workspace": "22.7.5",
-    "nx": "22.7.5",
+    "nx": "24.0.5",
     "typescript": "5.9.3"
   },
   "packageManager": "yarn@4.9.2"
