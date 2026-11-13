@@ -11,16 +11,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * Права на заявку (правило D6):
- * - MODERATE (подтвердить / отклонить) — владелец кружка или ROLE_ADMIN;
- *   заявки в кружки без владельца — только ROLE_ADMIN;
- * - CANCEL (отменить) — только автор заявки.
- *
- * Логика — в Enrollment::canBeModeratedBy() / canBeCancelledBy(), те же методы использует
- * guard workflow `enrollment` (App\Workflow\EnrollmentGuardListener).
- *
- * Использование: `$this->denyAccessUnlessGranted(EnrollmentVoter::MODERATE, $enrollment)`
- * или `#[IsGranted(EnrollmentVoter::CANCEL, subject: 'enrollment')]`.
+ * Права на заявку; им же следует guard workflow `enrollment` (EnrollmentGuardListener).
  *
  * @extends Voter<self::MODERATE|self::CANCEL, Enrollment>
  */
@@ -29,9 +20,14 @@ final class EnrollmentVoter extends Voter
     public const string MODERATE = 'ENROLLMENT_MODERATE';
     public const string CANCEL = 'ENROLLMENT_CANCEL';
 
+    public const array DENIED_MESSAGES = [
+        self::MODERATE => 'Подтверждать и отклонять заявку может только владелец кружка или администратор',
+        self::CANCEL => 'Отменить заявку может только её автор',
+    ];
+
     public function supportsAttribute(string $attribute): bool
     {
-        return self::MODERATE === $attribute || self::CANCEL === $attribute;
+        return isset(self::DENIED_MESSAGES[$attribute]);
     }
 
     public function supportsType(string $subjectType): bool
@@ -47,26 +43,11 @@ final class EnrollmentVoter extends Voter
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
     {
         $user = $token->getUser();
-        if (!$user instanceof User) {
-            $vote?->addReason('Требуется вход');
-
-            return false;
-        }
-
         \assert($subject instanceof Enrollment);
 
-        $granted = match ($attribute) {
+        return $user instanceof User && match ($attribute) {
             self::MODERATE => $subject->canBeModeratedBy($user),
             self::CANCEL => $subject->canBeCancelledBy($user),
-            default => false,
         };
-
-        if (!$granted) {
-            $vote?->addReason(self::MODERATE === $attribute
-                ? 'Подтверждать и отклонять заявку может только владелец кружка или администратор'
-                : 'Отменить заявку может только её автор');
-        }
-
-        return $granted;
     }
 }
