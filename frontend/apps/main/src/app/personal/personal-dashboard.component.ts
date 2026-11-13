@@ -58,20 +58,6 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
             <p class="hero__email">{{ user.email }}</p>
           </div>
         </div>
-        <div class="hero__stats">
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ stats().enrollments }}</span>
-            <span class="hero__stat-label">записей</span>
-          </div>
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ stats().activities }}</span>
-            <span class="hero__stat-label">активностей</span>
-          </div>
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ stats().children }}</span>
-            <span class="hero__stat-label">детей</span>
-          </div>
-        </div>
       </div>
 
       <div class="tabs">
