@@ -1,2 +1,28 @@
 framework:
-    workflows: null
+    workflows:
+        # Статусы заявки на запись (раздел 3 docs/backend-requirements.md).
+        # Сервис state_machine.enrollment, автовайринг: WorkflowInterface $enrollmentStateMachine.
+        # Права на переходы — App\Workflow\EnrollmentGuardListener, имена — App\Workflow\EnrollmentWorkflow.
+        enrollment:
+            type: state_machine
+            marking_store:
+                type: method
+                property: marking # Enrollment::getMarking() / setMarking()
+            supports:
+                - App\Entity\Enrollment
+            initial_marking: pending
+            places:
+                - pending
+                - confirmed
+                - rejected
+                - cancelled
+            transitions:
+                confirm:
+                    from: pending
+                    to: confirmed
+                reject:
+                    from: pending
+                    to: rejected
+                cancel:
+                    from: [pending, confirmed]
+                    to: cancelled
