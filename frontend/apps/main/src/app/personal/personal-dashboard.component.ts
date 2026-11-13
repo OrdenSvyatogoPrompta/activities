@@ -20,10 +20,14 @@ import { ProfileNameComponent } from './profile-name.component';
 type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
 
-interface CalendarDot {
+interface CalendarEvent {
+  label: string;
+  title: string;
   color: string;
   pending: boolean;
 }
+
+const MAX_DAY_EVENTS = 2;
 
 interface IncomingByBranch {
   byBranch: Record<string, IncomingEnrollment[]>;
@@ -97,12 +101,12 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                     <div class="cal__day" [class.cal__day--today]="day.date === today">
                       @if (day.date) {
                         <span class="cal__num">{{ day.date }}</span>
-                        @if (day.dots.length > 0) {
-                          <div class="cal__dots">
-                            @for (dot of day.dots; track $index) {
-                              <span class="cal__dot" [class.cal__dot--pending]="dot.pending" [style.background]="dot.color"></span>
-                            }
-                          </div>
+                        @for (ev of day.events.slice(0, maxDayEvents); track $index) {
+                          <span class="cal__event" [class.cal__event--pending]="ev.pending"
+                            [style.background]="ev.color" [title]="ev.title">{{ ev.label }}</span>
+                        }
+                        @if (day.events.length > maxDayEvents) {
+                          <span class="cal__more">+{{ day.events.length - maxDayEvents }}</span>
                         }
                       }
                     </div>
@@ -401,6 +405,8 @@ export class PersonalDashboardComponent {
     return list.filter(e => e.forChild?.id === f);
   });
 
+  readonly maxDayEvents = MAX_DAY_EVENTS;
+
   readonly activeEnrollments = computed(() => this.enrollments.items().filter(isActiveEnrollment));
 
   readonly calendarDays = computed(() => {
@@ -411,14 +417,19 @@ export class PersonalDashboardComponent {
     const lastDay = new Date(year, month + 1, 0);
     const startOffset = (firstDay.getDay() + 6) % 7;
     const enrollments = this.activeEnrollments();
-    const days: Array<{ date: number | null; dots: CalendarDot[] }> = [];
-    for (let i = 0; i < startOffset; i++) days.push({ date: null, dots: [] });
+    const days: Array<{ date: number | null; events: CalendarEvent[] }> = [];
+    for (let i = 0; i < startOffset; i++) days.push({ date: null, events: [] });
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const weekday = DAY_NAMES[new Date(year, month, d).getDay()];
-      const dots = enrollments
+      const events = enrollments
         .filter(e => e.days.includes(weekday))
-        .map(e => ({ color: e.color, pending: e.status === 'pending' }));
-      days.push({ date: d, dots });
+        .map(e => ({
+          label: e.clubName.split(' · ')[0],
+          title: e.clubName + (e.status === 'pending' ? ' (на рассмотрении)' : ''),
+          color: e.color,
+          pending: e.status === 'pending',
+        }));
+      days.push({ date: d, events });
     }
     return { days, monthLabel: firstDay.toLocaleString('ru', { month: 'long', year: 'numeric' }) };
   });
