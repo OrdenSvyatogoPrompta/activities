@@ -40,6 +40,20 @@ make start
 
 Все сервисы в сети `activities.loc`. Код фронта и бэкенда примонтирован в контейнеры — изменения подхватываются без перезапуска.
 
+## Claude Code: Playwright MCP
+
+В `.mcp.json` подключён общий для команды MCP-сервер `page-preview`
+(Playwright) для просмотра страниц — через него Claude Code открывает
+приложение в headless-браузере, кликает и делает скриншоты
+(например, http://localhost:8080 после `make start`).
+
+- Нужен Node.js (`npx`); пакет `@playwright/mcp` скачается при первом запуске.
+- Если браузер не найден: `npx playwright install chromium`.
+- При первом запуске `claude` в корне проекта спросит, доверять ли серверам
+  из `.mcp.json`, — подтвердите. Проверить: `/mcp` или `claude mcp list`.
+- В Docker/Linux-контейнере под root добавьте в `args` флаг `--no-sandbox`
+  локально (через `claude mcp add ... -s local`), а не в общий файл.
+
 ## Полезные команды
 
 ```bash
