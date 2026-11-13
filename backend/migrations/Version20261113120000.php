@@ -69,7 +69,7 @@ final class Version20261113120000 extends AbstractMigration
             price_type VARCHAR(16) NOT NULL,
             price_amount INT NOT NULL,
             tags JSON NOT NULL,
-            is_published TINYINT(1) NOT NULL,
+            is_published TINYINT NOT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL,
             UNIQUE INDEX UNIQ_B8EE3872989D9B62 (slug),
@@ -163,7 +163,10 @@ final class Version20261113120000 extends AbstractMigration
             refresh_token VARCHAR(128) NOT NULL,
             username VARCHAR(255) NOT NULL,
             valid DATETIME NOT NULL,
+            family VARCHAR(32) DEFAULT NULL,
+            family_valid DATETIME DEFAULT NULL,
             UNIQUE INDEX UNIQ_9BACE7E1C74F2195 (refresh_token),
+            INDEX IDX_REFRESH_TOKENS_FAMILY (family),
             PRIMARY KEY (id)
         ) '.self::TABLE_OPTIONS);
 
