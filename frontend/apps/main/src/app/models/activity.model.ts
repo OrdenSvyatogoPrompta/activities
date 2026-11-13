@@ -13,11 +13,13 @@ export interface ActivityBranch {
   id: string;
   name: string;
   address: string;
-  phone: string;
+  phone: string | null;
+  /** Человекочитаемое расписание (формирует сервер, группы через `\n`). */
+  schedule: string;
   /** Совместимость: дни всех слотов и время первого слота. */
   days: DayOfWeek[];
-  timeFrom: string;
-  timeTo: string;
+  timeFrom: string | null;
+  timeTo: string | null;
   slots: ScheduleSlot[];
 }
 
@@ -27,8 +29,10 @@ export interface IncomingEnrollment {
   personName: string;
   childName: string | null;
   /** id филиала **кружка** (не активности). */
-  branchId: string;
-  branchName: string;
+  branchId: string | null;
+  branchName: string | null;
+  /** id филиала активности, из которого создан филиал кружка; `null` — сопоставить не удалось. */
+  activityBranchId: string | null;
   enrolledAt: string;
   status: EnrollmentStatus;
 }
@@ -46,10 +50,16 @@ export interface Activity {
   clubId: string | null;
   ageMin: number;
   ageMax: number;
+  /** Подпись возраста от сервера: `5–14 лет`. */
+  age: string;
   visitType: VisitType;
   priceType: PriceType;
   priceAmount: number;
+  /** Подпись цены от сервера: `Бесплатно` / `2 500 ₽ / мес`. */
+  price: string;
   tags: string[];
+  /** ISO 8601. */
+  createdAt: string;
   branches: ActivityBranch[];
   /** Заявки в связанный кружок, кроме `cancelled`. */
   enrollments: IncomingEnrollment[];

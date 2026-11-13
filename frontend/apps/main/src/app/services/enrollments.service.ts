@@ -4,6 +4,7 @@ import { Observable, tap } from 'rxjs';
 import { ApiClient, LoadStatus } from '../api/api-client';
 import { toApiError } from '../api/api-error';
 import { CreateEnrollmentPayload, Enrollment } from '../models/enrollment.model';
+import { Child } from '../models/user.model';
 import { AuthService } from './auth.service';
 
 /** Заявки текущего пользователя на запись в кружки. */
@@ -63,6 +64,11 @@ export class EnrollmentsService {
   /** `POST /api/enrollments/{id}/reject` — отклонение входящей заявки, причина необязательна. */
   reject(id: string, reason?: string): Observable<Enrollment> {
     return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/reject`, reason ? { reason } : {});
+  }
+
+  /** Локально обновляет копию ребёнка в заявках после его редактирования. */
+  replaceChild(child: Child): void {
+    this.mine.update(list => list.map(e => (e.forChild?.id === child.id ? { ...e, forChild: child } : e)));
   }
 
   private reset(): void {

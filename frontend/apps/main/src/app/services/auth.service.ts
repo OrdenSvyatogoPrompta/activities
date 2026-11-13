@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
 
 import { ApiClient } from '../api/api-client';
-import { AuthResponse, RefreshResponse, User } from '../models/user.model';
+import { AuthResponse, RefreshResponse, UpdateProfilePayload, User } from '../models/user.model';
 
 /**
  * Сессия пользователя. Access-токен хранится только в памяти; refresh-токен — в HttpOnly cookie,
@@ -53,6 +53,13 @@ export class AuthService {
   /** `GET /api/me` — обновляет профиль и счётчики. */
   async reloadUser(): Promise<void> {
     this.user.set(await firstValueFrom(this.api.get<User>('/me')));
+  }
+
+  /** `PATCH /api/me` — меняет профиль (сейчас только имя) и обновляет `user`. */
+  async updateProfile(payload: UpdateProfilePayload): Promise<User> {
+    const user = await firstValueFrom(this.api.patch<User>('/me', payload));
+    this.user.set(user);
+    return user;
   }
 
   /**

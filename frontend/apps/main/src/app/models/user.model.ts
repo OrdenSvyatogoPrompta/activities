@@ -31,6 +31,22 @@ export interface CreateChildPayload {
   gender: Gender;
 }
 
+/**
+ * Тело `PATCH /api/me/children/{id}` — частичное обновление.
+ * `lastName: null` (или пустая строка) стирает фамилию.
+ */
+export interface UpdateChildPayload {
+  firstName?: string;
+  lastName?: string | null;
+  age?: number;
+  gender?: Gender;
+}
+
+/** Тело `PATCH /api/me`. */
+export interface UpdateProfilePayload {
+  name?: string;
+}
+
 /** Ответ `POST /api/auth/login|register`. */
 export interface AuthResponse {
   accessToken: string;

@@ -3,7 +3,7 @@ import { Observable, tap } from 'rxjs';
 
 import { ApiClient, LoadStatus } from '../api/api-client';
 import { toApiError } from '../api/api-error';
-import { Child, CreateChildPayload } from '../models/user.model';
+import { Child, CreateChildPayload, UpdateChildPayload } from '../models/user.model';
 import { AuthService } from './auth.service';
 
 /** Дети текущего пользователя (`/api/me/children`). */
@@ -43,6 +43,13 @@ export class ChildrenService {
   create(payload: CreateChildPayload): Observable<Child> {
     return this.api.post<Child>('/me/children', payload).pipe(
       tap(child => this.children.update(list => [...list, child])),
+    );
+  }
+
+  /** `PATCH /api/me/children/{id}` — частичное обновление. */
+  update(id: string, payload: UpdateChildPayload): Observable<Child> {
+    return this.api.patch<Child>(`/me/children/${encodeURIComponent(id)}`, payload).pipe(
+      tap(child => this.children.update(list => list.map(c => (c.id === child.id ? child : c)))),
     );
   }
 
