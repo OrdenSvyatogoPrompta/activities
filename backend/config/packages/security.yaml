@@ -5,7 +5,6 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        # Пользователи из БД; поиск по email без учёта регистра — UserRepository::loadUserByIdentifier()
         app_user_provider:
             entity:
                 class: App\Entity\User
@@ -28,8 +27,6 @@ security:
             # токена к защищённому маршруту получает 401 от JWT-аутентификатора
             entry_point: jwt
 
-            # POST /api/auth/login { email, password } → access-токен в теле ответа,
-            # refresh-токен в cookie (её ставит gesdinet по событию успешного входа lexik)
             json_login:
                 check_path: /api/auth/login
                 username_path: email
@@ -42,16 +39,11 @@ security:
                 max_attempts: 5
                 interval: '1 minute'
 
-            # POST /api/auth/refresh — refresh-токен из cookie; TTL и ротация —
-            # в gesdinet_jwt_refresh_token.yaml
             refresh_jwt:
                 check_path: /api/auth/refresh
 
-            # Authorization: Bearer <access>
             jwt: ~
 
-            # POST /api/auth/logout — gesdinet удаляет refresh-токен и чистит cookie.
-            # Маршрут создаёт security.route_loader.logout (config/routes/security.yaml)
             logout:
                 path: /api/auth/logout
 

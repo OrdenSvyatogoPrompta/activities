@@ -27,18 +27,11 @@ final readonly class RegistrationService
     ) {
     }
 
-    /**
-     * Создаёт пользователя. Занятый email (без учёта регистра) → 422 с нарушением по полю `email`.
-     *
-     * @throws UnprocessableEntityHttpException
-     */
     public function register(RegisterRequest $request): User
     {
-        // Конструктор нормализует email (trim + нижний регистр)
         $user = new User($request->email, trim($request->name));
         $user->setPassword($this->passwordHasher->hashPassword($user, $request->password));
 
-        // Правила сущности, в т. ч. UniqueEntity по email
         $violations = $this->validator->validate($user);
         if (\count($violations) > 0) {
             throw $this->validationError($user, $violations);
@@ -49,17 +42,15 @@ final readonly class RegistrationService
         try {
             $this->entityManager->flush();
         } catch (UniqueConstraintViolationException $e) {
-            // Гонка двух одновременных регистраций: проверку выше прошли оба запроса
-            throw $this->validationError($user, new ConstraintViolationList([
-                new ConstraintViolation(self::EMAIL_TAKEN, self::EMAIL_TAKEN, [], $user, 'email', $user->getEmail(), cause: $e),
-            ]));
+            // Гонка двух одновременных регистраций: UniqueEntity прошли оба запроса
+            throw $this->validationError($user, new ConstraintViolationList([new ConstraintViolation(self::EMAIL_TAKEN, self::EMAIL_TAKEN, [], $user, 'email', $user->getEmail(), cause: $e)]));
         }
 
         return $user;
     }
 
     /**
-     * Та же форма, что у ошибок `#[MapRequestPayload]`: ProblemFactory найдёт нарушения в цепочке.
+     * Та же форма 422, что у `#[MapRequestPayload]`: ProblemFactory найдёт нарушения в цепочке.
      */
     private function validationError(User $user, ConstraintViolationListInterface $violations): UnprocessableEntityHttpException
     {

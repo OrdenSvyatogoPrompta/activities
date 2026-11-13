@@ -7,10 +7,7 @@ namespace App\Service;
 use Symfony\Component\String\Slugger\SluggerInterface;
 
 /**
- * Slug кружка из названия: транслитерация (AsciiSlugger, локаль ru), нижний регистр,
- * уникальность через суффикс `-2`, `-3`, …
- *
- * Пример: `$slugGenerator->generate('Акварель', $clubRepository->slugExists(...))` → `akvarel`.
+ * Транслитерация названия; занятый slug получает суффикс `-2`, `-3` и т. д.
  */
 final class SlugGenerator
 {
@@ -23,7 +20,7 @@ final class SlugGenerator
     }
 
     /**
-     * @param callable(string): bool $isTaken занят ли slug (обычно ClubRepository::slugExists)
+     * @param callable(string): bool $isTaken
      */
     public function generate(string $source, callable $isTaken): string
     {
@@ -38,13 +35,9 @@ final class SlugGenerator
         return $candidate;
     }
 
-    /**
-     * Slug без проверки уникальности.
-     */
     public function slugify(string $source): string
     {
-        // Мягкий и твёрдый знаки транслитерируются в апостроф, который слаггер превращает
-        // в разделитель («nastol-nyye»); убираем их заранее
+        // Иначе ь/ъ станут разделителем: «nastol-nyye»
         $source = str_replace(['ь', 'Ь', 'ъ', 'Ъ'], '', $source);
 
         $slug = $this->slugger->slug($source, '-', 'ru')->lower()->toString();

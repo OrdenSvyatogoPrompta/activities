@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\TooManyLoginAttemptsAuthenticationException;
 
 /**
- * Ошибки аутентификации (lexik и gesdinet отвечают своим JSON) → `application/problem+json`.
+ * lexik и gesdinet отвечают на ошибки своим JSON — приводим к problem+json.
  */
 final readonly class AuthenticationFailureProblemListener
 {
@@ -24,9 +24,6 @@ final readonly class AuthenticationFailureProblemListener
     ) {
     }
 
-    /**
-     * Запрос к защищённому маршруту без заголовка Authorization (точка входа firewall).
-     */
     #[AsEventListener(event: Events::JWT_NOT_FOUND)]
     public function onJwtNotFound(AuthenticationFailureEvent $event): void
     {
@@ -45,9 +42,6 @@ final readonly class AuthenticationFailureProblemListener
         $event->setResponse($this->problems->authenticationProblem('Access-токен недействителен'));
     }
 
-    /**
-     * Неуспешный вход через json_login (обработчик неудачи lexik).
-     */
     #[AsEventListener(event: Events::AUTHENTICATION_FAILURE)]
     public function onLoginFailure(AuthenticationFailureEvent $event): void
     {
@@ -63,9 +57,6 @@ final readonly class AuthenticationFailureProblemListener
         $event->setResponse($this->problems->authenticationProblem('Неверный email или пароль'));
     }
 
-    /**
-     * Неуспешный POST /api/auth/refresh.
-     */
     #[AsEventListener(event: 'gesdinet.refresh_token_failure')]
     public function onRefreshFailure(RefreshAuthenticationFailureEvent $event): void
     {

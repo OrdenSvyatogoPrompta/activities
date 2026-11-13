@@ -9,9 +9,7 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * Вся схема доменной модели (группа B docs/backend-requirements.md) и таблица refresh-токенов
- * gesdinet (App\Entity\RefreshToken). Имена индексов и внешних ключей совпадают с теми,
- * что генерирует Doctrine по маппингу сущностей, — `doctrine:schema:validate` должен быть зелёным.
+ * Имена индексов и ключей совпадают с генерируемыми Doctrine — иначе schema:validate не пройдёт.
  */
 final class Version20261113120000 extends AbstractMigration
 {
@@ -157,7 +155,6 @@ final class Version20261113120000 extends AbstractMigration
             PRIMARY KEY (id)
         ) '.self::TABLE_OPTIONS);
 
-        // gesdinet/jwt-refresh-token-bundle (App\Entity\RefreshToken, маппинг из бандла)
         $this->addSql('CREATE TABLE refresh_tokens (
             id INT AUTO_INCREMENT NOT NULL,
             refresh_token VARCHAR(128) NOT NULL,
@@ -219,7 +216,7 @@ final class Version20261113120000 extends AbstractMigration
     }
 
     /**
-     * DDL в MySQL неявно фиксирует транзакцию — оборачивать миграцию в неё бессмысленно.
+     * DDL в MySQL неявно фиксирует транзакцию.
      */
     public function isTransactional(): bool
     {

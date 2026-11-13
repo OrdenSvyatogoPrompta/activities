@@ -1,8 +1,6 @@
 framework:
     workflows:
-        # Статусы заявки на запись (раздел 3 docs/backend-requirements.md).
-        # Сервис state_machine.enrollment, автовайринг: WorkflowInterface $enrollmentStateMachine.
-        # Права на переходы — App\Workflow\EnrollmentGuardListener, имена — App\Workflow\EnrollmentWorkflow.
+        # Права на переходы — App\Workflow\EnrollmentGuardListener
         enrollment:
             type: state_machine
             marking_store:

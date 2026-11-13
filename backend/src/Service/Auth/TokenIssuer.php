@@ -10,10 +10,8 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Выдаёт токены без json_login (после регистрации) тем же путём, что и при входе:
- * обработчик успеха lexik создаёт access-токен и бросает событие
- * `lexik_jwt_authentication.on_authentication_success`, на котором gesdinet ставит cookie
- * с refresh-токеном, а AuthenticationSuccessListener приводит тело к `{ accessToken, user }`.
+ * Выдаёт токены после регистрации тем же обработчиком lexik, что и при входе:
+ * так срабатывают те же слушатели (cookie refresh-токена, форма тела).
  */
 final readonly class TokenIssuer
 {

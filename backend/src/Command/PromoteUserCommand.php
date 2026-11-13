@@ -13,11 +13,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Выдача ролей пользователю — единственный способ получить ROLE_ADMIN на проде:
- *
- *     bin/console app:user:promote admin@example.com --admin
- *
- * Роль задаётся опцией явно, чтобы случайный запуск без опций ничего не менял.
+ * Единственный способ выдать ROLE_ADMIN на проде. Роль задаётся опцией явно,
+ * чтобы запуск без опций ничего не менял.
  */
 #[AsCommand(name: 'app:user:promote', description: 'Выдаёт пользователю роль (--admin — администратор)')]
 final readonly class PromoteUserCommand
