@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "page-preview": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.85",
+        "--headless",
+        "--browser",
+        "chromium",
+        "--isolated",
+        "--viewport-size",
+        "1440x900"
+      ]
+    }
+  }
+}
