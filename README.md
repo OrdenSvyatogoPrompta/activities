@@ -24,6 +24,26 @@ make start
 | `make start`   | Поднимает окружение в фоне из готовых образов (`docker compose up -d --no-build`) |
 | `make stop`    | Останавливает и удаляет контейнеры (`docker compose down`), данные MySQL сохраняются |
 
+Бэкенд и проверки:
+
+| Команда | Что делает |
+|---|---|
+| `make backend-deps` | Разово ставит пакеты бэкенда (Doctrine, Security, JWT, тесты и др.) — см. `docs/backend-requirements.md` |
+| `make jwt-keys` | Генерирует dev-ключи JWT, если их ещё нет |
+| `make console c="…"` | Команда `bin/console` в запущенном бэкенде |
+| `make db-migration` | Генерирует миграцию по изменениям сущностей |
+| `make db-migrate` | Применяет миграции к dev-базе |
+| `make db-fixtures` | Перезаливает фикстуры (данные dev-базы удаляются) |
+| `make db-reset` | Пересоздаёт dev-базу: удаление таблиц → миграции → фикстуры |
+| `make test-db` | Создаёт и наполняет тестовую базу `activities_test` |
+| `make lint` | `lint:container`, `lint:yaml`, проверка маппинга Doctrine, php-cs-fixer (без БД) |
+| `make cs-fix` | Исправляет стиль кода бэкенда |
+| `make typecheck` | Проверка типов фронтенда |
+| `make test` | Тесты бэкенда (PHPUnit) |
+| `make check` | `lint` + `typecheck` + `test` |
+
+Таргеты `console`, `db-*`, `test-db` и `test` работают в запущенном окружении (`make start`).
+
 ## Как устроено
 
 ```

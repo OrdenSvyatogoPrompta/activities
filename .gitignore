@@ -10,4 +10,6 @@
 # Общее для команды (.claude/skills/, .claude/settings.json,
 # .claude/agents/, .claude/commands/, CLAUDE.md) коммитится.
 .claude/settings.local.json
+# Временные git worktree субагентов Claude Code
+.claude/worktrees/
 CLAUDE.local.md
