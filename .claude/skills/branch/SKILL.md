@@ -60,7 +60,7 @@ gh pr create --base main --title "<title>" --body "<body>"
 ```
 
 - Push and open PRs only when the user asked for it.
-- **PR title** follows the commit format, in Russian: `<type>(<scope>): <subject>` — it becomes the squash-merge commit message (see the `commit` skill).
+- **PR title** follows the commit format, in Russian: `<type>(<scope>): <subject>` (see the `commit` skill).
 - **PR body** — in Russian:
   ```markdown
   ## Что
@@ -74,9 +74,20 @@ gh pr create --base main --title "<title>" --body "<body>"
   ```
 - Keep PRs small and focused; split large changes into several PRs.
 
+## Merging into main
+
+- Changes are merged into `main` **only with `git merge --no-ff`** — always a merge commit, never fast-forward and never squash. This keeps the branch history visible in `main`.
+  ```bash
+  git checkout main
+  git pull --ff-only
+  git merge --no-ff <branch>
+  ```
+- The merge commit message follows the `commit` skill format (Russian, past tense), e.g. `chore: слил ветку chore/commit-branch-skills в main`.
+- When merging a PR on GitHub, use the "Create a merge commit" option (it is the `--no-ff` equivalent); do not use "Squash and merge" or "Rebase and merge".
+- Merge into `main` only when the user explicitly asks for it.
+
 ## After merge
 
-- Merge strategy: squash merge into `main`.
 - Delete the branch after merge (remote and local):
   ```bash
   git checkout main && git pull --ff-only
