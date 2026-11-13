@@ -1,4 +1,4 @@
-import { ClubCategory, DayOfWeek, PriceType, ScheduleSlot, VisitType } from './club.model';
+import { ClubCategory, PriceType, ScheduleSlot, VisitType } from './club.model';
 import { EnrollmentStatus } from './enrollment.model';
 
 export type ActivityStatus = 'pending' | 'approved' | 'rejected';
@@ -14,30 +14,22 @@ export interface ActivityBranch {
   name: string;
   address: string;
   phone: string | null;
-  /** Человекочитаемое расписание (формирует сервер, группы через `\n`). */
+  /** Группы слотов через `\n`. */
   schedule: string;
-  /** Совместимость: дни всех слотов и время первого слота. */
-  days: DayOfWeek[];
-  timeFrom: string | null;
-  timeTo: string | null;
   slots: ScheduleSlot[];
 }
 
-/** Входящая заявка в кружок, созданный из активности. */
 export interface IncomingEnrollment {
   id: string;
   personName: string;
   childName: string | null;
-  /** id филиала **кружка** (не активности). */
-  branchId: string | null;
-  branchName: string | null;
-  /** id филиала активности, из которого создан филиал кружка; `null` — сопоставить не удалось. */
+  /** `null` — филиал кружка не сопоставлен с филиалом активности. */
   activityBranchId: string | null;
+  branchName: string | null;
   enrolledAt: string;
   status: EnrollmentStatus;
 }
 
-/** Активность организатора (`GET /api/me/activities`). */
 export interface Activity {
   id: string;
   name: string;
@@ -46,22 +38,17 @@ export interface Activity {
   description: string;
   status: ActivityStatus;
   moderationComment: string | null;
-  /** slug опубликованного кружка; `null`, пока активность не одобрена. */
+  /** slug кружка; `null`, пока активность не одобрена. */
   clubId: string | null;
   ageMin: number;
   ageMax: number;
-  /** Подпись возраста от сервера: `5–14 лет`. */
   age: string;
   visitType: VisitType;
   priceType: PriceType;
   priceAmount: number;
-  /** Подпись цены от сервера: `Бесплатно` / `2 500 ₽ / мес`. */
   price: string;
   tags: string[];
-  /** ISO 8601. */
-  createdAt: string;
   branches: ActivityBranch[];
-  /** Заявки в связанный кружок, кроме `cancelled`. */
   enrollments: IncomingEnrollment[];
 }
 
@@ -72,7 +59,6 @@ export interface CreateActivityBranchPayload {
   slots: ScheduleSlot[];
 }
 
-/** Тело `POST /api/me/activities`. */
 export interface CreateActivityPayload {
   name: string;
   category: ClubCategory;

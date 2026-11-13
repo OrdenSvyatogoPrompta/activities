@@ -1,63 +1,14 @@
+@use '../../styles/cabinet';
+
 :host {
   display: block;
   min-height: 100vh;
   background: #f8fafc;
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  height: 52px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-
-  &__logo {
-    font-size: 15px;
-    font-weight: 800;
-    color: #f25e02;
-    letter-spacing: -0.02em;
-    text-decoration: none;
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  &__admin {
-    font-size: 13px;
-    font-weight: 600;
-    color: #6880f8;
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
-  }
-
-  &__logout {
-    font-size: 13px;
-    font-weight: 500;
-    color: #94a3b8;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s;
-    &:hover { color: #ef4444; }
-  }
-}
-
-// ─── Hero ─────────────────────────────────────────────────────────────────────
-
 .hero {
   background: linear-gradient(135deg, #f25e02 0%, #6880f8 100%);
-  padding: 28px 24px 0;
+  padding: 24px;
   position: relative;
   overflow: hidden;
 
@@ -70,13 +21,14 @@
     height: 200px;
     border-radius: 50%;
     background: rgba(255,255,255,0.08);
+    pointer-events: none;
   }
 
   &__top {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 14px;
-    margin-bottom: 20px;
   }
 
   &__avatar {
@@ -97,121 +49,18 @@
 
   &__info { flex: 1; }
 
-  &__name {
-    font-size: 18px;
-    font-weight: 700;
-    color: #fff;
-    margin: 0 0 2px;
-    letter-spacing: -0.01em;
-  }
-
   &__email {
     font-size: 13px;
     color: rgba(255,255,255,0.7);
     margin: 0;
   }
 
-  &__stats {
-    display: flex;
-    background: rgba(255,255,255,0.12);
-    border-radius: 12px 12px 0 0;
-    overflow: hidden;
-  }
-
-  &__stat {
-    flex: 1;
-    padding: 12px;
-    text-align: center;
-    border-right: 1px solid rgba(255,255,255,0.12);
-    &:last-child { border-right: none; }
-  }
-
-  &__stat-num {
-    font-size: 20px;
-    font-weight: 800;
-    color: #fff;
-    display: block;
-    line-height: 1;
-    margin-bottom: 2px;
-  }
-
-  &__stat-label {
-    font-size: 11px;
-    color: rgba(255,255,255,0.65);
-    font-weight: 500;
-  }
 }
-
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-
-.tabs {
-  display: flex;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  padding: 0 20px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
-}
-
-.tab {
-  padding: 14px 16px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #64748b;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-bottom: 2.5px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  &:hover:not(&--active) { color: #1e293b; }
-
-  &--active {
-    color: #6880f8;
-    border-bottom-color: #6880f8;
-    font-weight: 600;
-  }
-
-  &__count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 700;
-    background: #f1f5f9;
-    color: #64748b;
-
-    .tab--active & {
-      background: #6880f81a;
-      color: #6880f8;
-    }
-  }
-}
-
-// ─── Content ──────────────────────────────────────────────────────────────────
 
 .content {
   max-width: 640px;
   margin: 0 auto;
   padding: 20px 20px 48px;
-}
-
-// ─── Секция-заголовок ─────────────────────────────────────────────────────────
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
 }
 
 .section-title {
@@ -222,36 +71,12 @@
   letter-spacing: 0.08em;
 }
 
-// ─── Фильтр по детям ──────────────────────────────────────────────────────────
-
 .child-filter {
   display: flex;
   gap: 6px;
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
-
-.filter-pill {
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
-  background: transparent;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.12s;
-
-  &:hover:not(&--active) { border-color: #6880f8; color: #6880f8; }
-
-  &--active {
-    background: #6880f8;
-    color: #fff;
-    border-color: #6880f8;
-  }
-}
-
-// ─── Запись-карточка ──────────────────────────────────────────────────────────
 
 .enrollment-card {
   background: #fff;
@@ -347,8 +172,6 @@
   }
 }
 
-// ─── Активность-карточка ──────────────────────────────────────────────────────
-
 .activity-card {
   background: #fff;
   border-radius: 14px;
@@ -358,6 +181,9 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08), 0 0 0 1px rgba(104,128,248,.35); }
 
   &__icon {
     width: 48px;
@@ -408,8 +234,6 @@
     letter-spacing: 0.04em;
   }
 }
-
-// ─── Дети ─────────────────────────────────────────────────────────────────────
 
 .child-card {
   background: #fff;
@@ -470,8 +294,6 @@
   }
 }
 
-// ─── Кнопки ───────────────────────────────────────────────────────────────────
-
 .btn-create {
   width: 100%;
   padding: 12px;
@@ -486,8 +308,6 @@
   margin-top: 4px;
   &:hover { background: #6880f808; border-color: #6880f8; }
 }
-
-// ─── Переключатель вью ────────────────────────────────────────────────────────
 
 .view-toggle {
   display: flex;
@@ -518,22 +338,43 @@
   }
 }
 
-// ─── Календарь ────────────────────────────────────────────────────────────────
-
 .cal {
   background: #fff;
   border-radius: 16px;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
 
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
   &__month {
+    min-width: 130px;
+    text-align: center;
     font-size: 14px;
     font-weight: 700;
     color: #1e293b;
     text-transform: capitalize;
-    margin-bottom: 12px;
     letter-spacing: -0.01em;
   }
+
+  &__arrow {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    &:hover { background: #e2e8f0; }
+  }
+
+  &__today { margin-left: auto; }
 
   &__grid {
     display: grid;
@@ -552,11 +393,11 @@
   }
 
   &__day {
-    aspect-ratio: 1;
+    min-height: 64px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
     gap: 2px;
     border-radius: 8px;
     padding: 4px 2px;
@@ -572,13 +413,44 @@
     font-size: 13px;
     color: #1e293b;
     line-height: 1;
+    text-align: center;
+    margin-bottom: 2px;
   }
 
-  &__dots {
-    display: flex;
-    gap: 2px;
-    flex-wrap: wrap;
-    justify-content: center;
+  &__event {
+    font-size: 9.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #fff;
+    padding: 1px 3px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &--pending { opacity: 0.45; }
+  }
+
+  &__who {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 2px;
+    border-radius: 50%;
+    background: #fff;
+    color: #1e293b;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 11px;
+    text-align: center;
+    vertical-align: 1px;
+  }
+
+  &__more {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-align: center;
   }
 
   &__dot {
@@ -587,6 +459,8 @@
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
+
+    &--pending { opacity: 0.35; }
   }
 
   &__legend {
@@ -608,19 +482,10 @@
   }
 }
 
-// ─── Детальный просмотр активности ────────────────────────────────────────────
-
 .back-btn {
-  font-size: 13px;
-  font-weight: 600;
-  color: #6880f8;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  margin-bottom: 16px;
   display: block;
-  &:hover { text-decoration: underline; }
+  margin-bottom: 16px;
+  font-size: 13px;
 }
 
 .act-detail {
@@ -668,6 +533,27 @@
     padding-top: 10px;
     border-top: 1px solid #f1f5f9;
   }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  &__link {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6880f8;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__meta {
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 8px 0 10px;
+  }
 }
 
 .branch-block {
@@ -699,6 +585,7 @@
     font-size: 12px;
     color: #94a3b8;
     margin-bottom: 10px;
+    white-space: pre-line;
   }
 
   &__enrolls {
@@ -727,8 +614,6 @@
   margin: 0;
   font-style: italic;
 }
-
-// ─── Пусто ────────────────────────────────────────────────────────────────────
 
 .empty {
   text-align: center;
@@ -762,8 +647,6 @@
   }
 }
 
-// ─── Статусы, ошибки, действия ───────────────────────────────────────────────
-
 .note {
   font-size: 12px;
   color: #dc2626;
@@ -772,34 +655,7 @@
 
 .item-error { margin-top: 6px; }
 
-.cal__dot--pending { opacity: 0.35; }
-
 .activity-card .status-badge { margin-top: 6px; }
-
-.act-detail {
-  &__status {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  &__link {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #6880f8;
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
-  }
-
-  &__meta {
-    font-size: 12.5px;
-    color: #64748b;
-    margin: 8px 0 10px;
-  }
-}
-
-.branch-block__sched { white-space: pre-line; }
 
 .incoming-title { margin: 18px 0 10px; }
 
@@ -819,23 +675,5 @@
     &:focus { border-color: #6880f8; }
   }
 }
-
-.ie-btn {
-  padding: 5px 12px;
-  border-radius: 8px;
-  border: 1.5px solid #e2e8f0;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  white-space: nowrap;
-
-  &--ok { background: #16a34a; border-color: #16a34a; color: #fff; }
-  &--danger { background: #ef4444; border-color: #ef4444; color: #fff; }
-  &:disabled { opacity: 0.6; cursor: progress; }
-}
-
-
 
 .incoming-note { margin-bottom: 10px; }

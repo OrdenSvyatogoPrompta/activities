@@ -11,7 +11,7 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection(),
     provideHttpClient(withInterceptors([authInterceptor]), withFetch()),
     provideRouter(routes),
-    // тихий refresh: восстанавливаем сессию до первой навигации (guard'ы видят актуальный user)
+    // до первой навигации, чтобы guard'ы видели восстановленную сессию
     provideAppInitializer(() => inject(AuthService).restoreSession()),
   ],
 };

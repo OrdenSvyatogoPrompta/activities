@@ -4,13 +4,10 @@ import { Observable } from 'rxjs';
 import { formErrorMessage, toApiError } from '../api/api-error';
 import { Child, CreateChildPayload, Gender, UpdateChildPayload } from '../models/user.model';
 import { ChildrenService } from '../services/children.service';
+import { toInt } from '../utils/format';
 
 const CHILD_FIELDS = ['firstName', 'lastName', 'age', 'gender'];
 
-/**
- * Форма ребёнка: добавление (`POST /api/me/children`) или, если передан `child`,
- * inline-редактирование (`PATCH /api/me/children/{id}`). Ошибки валидации — у полей.
- */
 @Component({
   selector: 'act-child-form',
   styleUrl: './child-form.component.scss',
@@ -54,10 +51,10 @@ const CHILD_FIELDS = ['firstName', 'lastName', 'age', 'gender'];
 
       @if (isEdit()) {
         <div class="form-actions">
-          <button type="button" class="btn-primary" [disabled]="saving()" (click)="submit()">
+          <button type="button" class="btn btn--primary" [disabled]="saving()" (click)="submit()">
             {{ saving() ? 'Сохраняем…' : 'Сохранить' }}
           </button>
-          <button type="button" class="btn-ghost" [disabled]="saving()" (click)="cancelled.emit()">Отмена</button>
+          <button type="button" class="btn btn--ghost" [disabled]="saving()" (click)="cancelled.emit()">Отмена</button>
         </div>
       } @else {
         <button type="button" class="btn-add-child" [disabled]="saving()" (click)="submit()">
@@ -70,7 +67,7 @@ const CHILD_FIELDS = ['firstName', 'lastName', 'age', 'gender'];
 export class ChildFormComponent implements OnInit {
   private readonly childrenService = inject(ChildrenService);
 
-  /** Редактируемый ребёнок; `null` — форма добавления. */
+  /** `null` — форма добавления. */
   readonly child = input<Child | null>(null);
 
   readonly saved     = output<Child>();
@@ -99,10 +96,10 @@ export class ChildFormComponent implements OnInit {
     if (this.saving()) return;
     const firstName = this.firstName().trim();
     const lastName = this.lastName().trim();
-    const age = /^\d+$/.test(this.age().trim()) ? Number(this.age().trim()) : NaN;
+    const age = toInt(this.age());
     const errors: Record<string, string> = {};
     if (!firstName) errors['firstName'] = 'Укажите имя';
-    if (!Number.isInteger(age) || age < 1 || age > 18) errors['age'] = 'Возраст — от 1 до 18 лет';
+    if (age === null || age < 1 || age > 18) errors['age'] = 'Возраст — от 1 до 18 лет';
     this.errors.set(errors);
     this.formError.set('');
     if (Object.keys(errors).length > 0) return;
@@ -110,7 +107,6 @@ export class ChildFormComponent implements OnInit {
     const child = this.child();
     let request: Observable<Child>;
     if (child) {
-      // пустая фамилия → null: сервер её сотрёт
       const payload: UpdateChildPayload = { firstName, lastName: lastName || null, age, gender: this.gender() };
       request = this.childrenService.update(child.id, payload);
     } else {

@@ -84,7 +84,6 @@ export class LoginComponent {
     } catch (err) {
       const apiError = toApiError(err, 'Не удалось войти');
       this.fieldErrors.set(apiError.fieldErrors);
-      // 401 — единое сообщение по контракту, не зависим от текста сервера
       this.error.set(apiError.status === 401 ? 'Неверный email или пароль' : formErrorMessage(apiError, FIELDS));
     } finally {
       this.loading.set(false);

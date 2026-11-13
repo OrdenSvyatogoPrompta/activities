@@ -1,5 +1,4 @@
-// Общие стили форм личного кабинета. Подключаются через `@use 'form';` в компонентах ЛК
-// (стили компонентов инкапсулированы, поэтому каждый включает свою копию).
+// Формы ЛК: подключаются через `@use 'form';`.
 
 .add-form {
   background: #fff;
@@ -88,51 +87,8 @@
 .form-actions {
   display: flex;
   gap: 8px;
-}
 
-.btn-primary,
-.btn-ghost {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  &:disabled { opacity: 0.6; cursor: progress; }
-}
-
-.btn-primary {
-  flex: 1;
-  background: #6880f8;
-  color: #fff;
-  &:hover { background: #5a6de8; }
-}
-
-.btn-ghost {
-  background: #f1f5f9;
-  color: #64748b;
-  &:hover { background: #e2e8f0; }
-}
-
-.filter-pill {
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
-  background: transparent;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.12s;
-
-  &:hover:not(&--active) { border-color: #6880f8; color: #6880f8; }
-
-  &--active {
-    background: #6880f8;
-    color: #fff;
-    border-color: #6880f8;
-  }
+  .btn--primary { flex: 1; }
 }
 
 .gender-row {
