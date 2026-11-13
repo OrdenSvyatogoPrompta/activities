@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { isAdmin } from '../models/admin.model';
 import { ClubCategory, DayOfWeek, PriceType, VisitType } from '../models/club.model';
 import { AuthService } from '../services/auth.service';
 import { ClubsService } from '../services/clubs.service';
@@ -57,7 +58,10 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <button class="header__search-clear" (click)="searchQuery.set('')">✕</button>
               }
             </div>
-            @if (authService.user()) {
+            @if (authService.user(); as user) {
+              @if (isAdmin(user)) {
+                <a class="header__auth header__auth--admin" routerLink="/admin">Модерация</a>
+              }
               <a class="header__auth" routerLink="/personal">Мой аккаунт</a>
             } @else {
               <a class="header__auth" routerLink="/auth/login">Войти</a>
@@ -249,6 +253,7 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
 export class HomeComponent {
   readonly clubsService = inject(ClubsService);
   readonly authService  = inject(AuthService);
+  readonly isAdmin      = isAdmin;
 
   readonly AGE_MIN    = AGE_MIN;
   readonly AGE_MAX    = AGE_MAX;

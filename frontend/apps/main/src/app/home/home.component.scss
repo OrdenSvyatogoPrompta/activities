@@ -116,6 +116,8 @@
     transition: opacity 0.15s;
 
     &:hover { opacity: 0.85; }
+
+    &--admin { color: var(--brand-purple); }
   }
 }
 
