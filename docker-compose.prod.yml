@@ -58,7 +58,11 @@ services:
     environment:
       APP_ENV: prod
       APP_SECRET: ${APP_SECRET}
-      DATABASE_URL: "mysql://activities:${MYSQL_PASSWORD}@mysql:3306/activities?serverVersion=8.4"
+      DATABASE_URL: "mysql://activities:${MYSQL_PASSWORD}@mysql:3306/activities?serverVersion=8.4&charset=utf8mb4"
+      # Содержимое PEM-ключей, а не пути: файловая система контейнера только для чтения
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE}
     networks:
       - internal
     depends_on:
