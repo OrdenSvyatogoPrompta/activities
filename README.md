@@ -85,22 +85,29 @@ make db-reset   # схема БД и демо-данные
 | `frontend` | `node:22-alpine` | Angular dev-сервер с hot reload |
 | `backend` | `php:8.5-fpm-alpine` + `intl`, composer | Symfony (`./backend`), роуты начинаются с `/api` |
 | `mysql` | `mysql:8.4` | База `activities`, пользователь/пароль `activities`/`activities` |
+| `page-preview` | `mcr.microsoft.com/playwright/mcp` | MCP-сервер для Claude Code (браузер), `127.0.0.1:8931` — только локально |
 
 Все сервисы в сети `activities.loc`. Код фронта и бэкенда примонтирован в контейнеры — изменения подхватываются без перезапуска.
 
 ## Claude Code: Playwright MCP
 
-В `.mcp.json` подключён общий для команды MCP-сервер `page-preview`
-(Playwright) для просмотра страниц — через него Claude Code открывает
-приложение в headless-браузере, кликает и делает скриншоты
-(например, http://localhost:8080 после `make start`).
+MCP-сервер `page-preview` (Playwright) для просмотра страниц: через него
+Claude Code открывает приложение в headless-браузере, кликает и делает
+скриншоты. Работает только при локальной разработке — поднимается сервисом
+`page-preview` в `docker-compose.yml` вместе с `make start` и слушает
+`http://localhost:8931/mcp` (адрес прописан в `.mcp.json`). Node.js и браузер
+на машине ставить не нужно.
 
-- Нужен Node.js (`npx`); пакет `@playwright/mcp` скачается при первом запуске.
-- Если браузер не найден: `npx playwright install chromium`.
-- При первом запуске `claude` в корне проекта спросит, доверять ли серверам
+- Сайт открывается по **http://127.0.0.1/** (без `:8080`): контейнер MCP
+  делит сеть с `web`, а nginx внутри слушает 80. Например: «открой
+  http://127.0.0.1/ через page-preview и сделай скриншот».
+- При первом запуске `claude` в корне проекта спросит, доверять ли серверу
   из `.mcp.json`, — подтвердите. Проверить: `/mcp` или `claude mcp list`.
-- В Docker/Linux-контейнере под root добавьте в `args` флаг `--no-sandbox`
-  локально (через `claude mcp add ... -s local`), а не в общий файл.
+  Если сервер не виден — `claude mcp reset-project-choices` и перезапуск `claude`.
+- Из-за общей сети после перезапуска одного `web` MCP отваливается —
+  используйте `make start` / `docker compose up -d`, они пересоздают оба.
+- У сервера нет авторизации, поэтому порт открыт только на `127.0.0.1`,
+  а в `docker-compose.prod.yml` сервиса нет и не должно быть.
 
 ## Полезные команды
 

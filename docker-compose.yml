@@ -4,6 +4,9 @@ services:
     container_name: activities
     ports:
       - "127.0.0.1:8080:80"
+      # MCP-сервер page-preview работает в сети этого контейнера, поэтому его
+      # порт публикуется здесь
+      - "127.0.0.1:8931:8931"
     volumes:
       - type: bind
         source: ./
@@ -41,6 +44,23 @@ services:
       MYSQL_ROOT_PASSWORD: root
     volumes:
       - mysql-data:/var/lib/mysql
+
+  # MCP-сервер для Claude Code: браузер для просмотра страниц (только локальная
+  # разработка, в docker-compose.prod.yml его нет). Без авторизации — порт
+  # открыт только на 127.0.0.1. Делит сеть с web, поэтому сайт из браузера
+  # открывается по http://127.0.0.1/ (nginx внутри слушает 80).
+  page-preview:
+    image: mcr.microsoft.com/playwright/mcp:v0.0.85
+    # --headless, --browser chromium и --no-sandbox уже заданы в entrypoint образа
+    command:
+      - --isolated
+      - --host=0.0.0.0
+      - --port=8931
+      - --allowed-hosts=localhost:8931,127.0.0.1:8931
+      - --viewport-size=1440x900
+    network_mode: "service:web"
+    depends_on:
+      - web
 
 volumes:
   angular-cache:

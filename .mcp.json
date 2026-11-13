@@ -1,18 +1,8 @@
 {
   "mcpServers": {
     "page-preview": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@0.0.85",
-        "--headless",
-        "--browser",
-        "chromium",
-        "--isolated",
-        "--viewport-size",
-        "1440x900"
-      ]
+      "type": "http",
+      "url": "http://localhost:8931/mcp"
     }
   }
 }
