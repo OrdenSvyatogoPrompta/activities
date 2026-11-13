@@ -1,8 +1,9 @@
 import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import { Observable, tap } from 'rxjs';
 
 import { ApiClient, LoadStatus } from '../api/api-client';
 import { toApiError } from '../api/api-error';
-import { Child } from '../models/user.model';
+import { Child, CreateChildPayload } from '../models/user.model';
 import { AuthService } from './auth.service';
 
 /** Дети текущего пользователя (`/api/me/children`). */
@@ -36,6 +37,20 @@ export class ChildrenService {
         this.status.set('error');
       },
     });
+  }
+
+  /** `POST /api/me/children`. */
+  create(payload: CreateChildPayload): Observable<Child> {
+    return this.api.post<Child>('/me/children', payload).pipe(
+      tap(child => this.children.update(list => [...list, child])),
+    );
+  }
+
+  /** `DELETE /api/me/children/{id}`; `409`, если у ребёнка есть активные заявки. */
+  remove(id: string): Observable<void> {
+    return this.api.delete<void>(`/me/children/${encodeURIComponent(id)}`).pipe(
+      tap(() => this.children.update(list => list.filter(c => c.id !== id))),
+    );
   }
 
   private reset(): void {

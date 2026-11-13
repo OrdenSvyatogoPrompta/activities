@@ -23,6 +23,14 @@ export interface Child {
   gender: Gender;
 }
 
+/** Тело `POST /api/me/children`. */
+export interface CreateChildPayload {
+  firstName: string;
+  lastName?: string;
+  age: number;
+  gender: Gender;
+}
+
 /** Ответ `POST /api/auth/login|register`. */
 export interface AuthResponse {
   accessToken: string;
