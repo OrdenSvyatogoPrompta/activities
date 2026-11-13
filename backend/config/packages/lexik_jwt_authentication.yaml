@@ -1,4 +1,10 @@
 lexik_jwt_authentication:
+    # dev/test: пути к ключам из `make jwt-keys` (config/jwt/*.pem, в git не попадают).
+    # prod: содержимое PEM-ключей прямо в переменных окружения — контейнер read-only,
+    # а загрузчик ключей принимает и путь к файлу, и сам ключ.
     secret_key: '%env(resolve:JWT_SECRET_KEY)%'
     public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
     pass_phrase: '%env(JWT_PASSPHRASE)%'
+
+    # Access-токен живёт 15 минут, дальше — POST /api/auth/refresh
+    token_ttl: 900
