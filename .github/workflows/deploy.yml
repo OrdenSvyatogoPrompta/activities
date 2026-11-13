@@ -1,0 +1,147 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Не запускать два деплоя одновременно; новый ждёт, пока закончится текущий
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+# По умолчанию — никаких прав; каждой задаче выдаются только нужные
+permissions: {}
+
+jobs:
+  build:
+    name: Build ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        image: [web, backend]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-${{ matrix.image }}
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/prod/${{ matrix.image }}.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Подписанная информация о том, как собран образ, и список его пакетов
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # Только ручной запуск: Actions → Deploy → Run workflow.
+  # При push в main собираются и публикуются образы, но на сервер ничего не выкатывается.
+  deploy:
+    name: Deploy to production
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'activities' }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check configuration
+        run: |
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::Не задана переменная окружения DOMAIN (Settings → Environments → production)"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          install -d -m 700 ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # StrictHostKeyChecking=yes: подключаться только к серверу из SSH_KNOWN_HOSTS
+          printf 'Host *\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  Port %s\n' "$SSH_PORT" > ~/.ssh/config
+
+      # Значения в одинарных кавычках: compose не раскрывает в них $ и спецсимволы
+      - name: Prepare .env
+        env:
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        run: |
+          umask 077
+          {
+            echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY,,}"
+            echo "TAG=${GITHUB_SHA}"
+            echo "DOMAIN=${DOMAIN}"
+            printf "APP_SECRET='%s'\n" "$APP_SECRET"
+            printf "MYSQL_PASSWORD='%s'\n" "$MYSQL_PASSWORD"
+            printf "MYSQL_ROOT_PASSWORD='%s'\n" "$MYSQL_ROOT_PASSWORD"
+          } > .env.prod
+
+      - name: Upload files
+        run: |
+          ssh "$SSH_TARGET" "install -d -m 700 '$DEPLOY_PATH'"
+          scp docker-compose.prod.yml "$SSH_TARGET:$DEPLOY_PATH/docker-compose.yml"
+          scp docker/prod/Caddyfile "$SSH_TARGET:$DEPLOY_PATH/Caddyfile"
+          scp .env.prod "$SSH_TARGET:$DEPLOY_PATH/.env"
+          ssh "$SSH_TARGET" "chmod 600 '$DEPLOY_PATH/.env'"
+
+      # Токен передаётся через stdin (не попадает в аргументы процессов и на диск сервера,
+      # кроме ~/.docker/config.json на время pull) и удаляется trap'ом при любом исходе
+      - name: Pull images and restart
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          ssh "$SSH_TARGET" bash -s -- "$DEPLOY_PATH" <<EOF
+          set -euo pipefail
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          cd "\$1"
+          printf '%s' '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin
+          docker compose pull
+          docker logout ghcr.io
+          docker compose up -d --remove-orphans
+          docker image prune -f
+          EOF
+
+      - name: Clean up
+        if: always()
+        run: rm -f .env.prod ~/.ssh/id_deploy

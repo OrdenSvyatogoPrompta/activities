@@ -1,0 +1,9 @@
+# HTTPS-терминатор: сам получает и продлевает сертификат Let's Encrypt для $DOMAIN,
+# с http:// перенаправляет на https://
+{$DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy web:8080
+}
