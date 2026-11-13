@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { ActivityBranch, AuthService, ManagedActivity } from '../services/auth.service';
 
@@ -346,6 +346,7 @@ const CATEGORIES = ['Спорт', 'Творчество', 'Наука', 'Муз�
 })
 export class PersonalDashboardComponent {
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   readonly user        = this.authService.user;
   readonly tab         = signal<Tab>('enrollments');
@@ -406,7 +407,10 @@ export class PersonalDashboardComponent {
     this.branchDays.set(curr.includes(day) ? curr.filter(d => d !== day) : [...curr, day]);
   }
 
-  logout(): void { this.authService.logout(); }
+  async logout(): Promise<void> {
+    await this.authService.logout();
+    await this.router.navigate(['/']);
+  }
   cancelEnrollment(id: string): void { this.authService.cancelEnrollment(id); }
   removeChild(id: string): void { this.authService.removeChild(id); }
 

@@ -1,12 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
 
-export interface Child {
-  id: string;
-  firstName: string;
-  lastName: string;
-  age: number;
-  gender: 'male' | 'female';
-}
+import { ApiClient } from '../api/api-client';
+import { AuthResponse, Child, RefreshResponse, User } from '../models/user.model';
+
+export type { Child } from '../models/user.model';
+
+// ─── Временные типы ЛК (до перевода ЛК на API) ───────────────────────────────
 
 export interface Enrollment {
   id: string;
@@ -48,73 +48,96 @@ export interface ManagedActivity {
   enrollments: IncomingEnrollment[];
 }
 
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
+export interface AuthUser extends User {
   children: Child[];
   enrollments: Enrollment[];
   activities: ManagedActivity[];
 }
 
-const MOCK_USER: AuthUser = {
-  id: 'u1',
-  name: 'Иванова Мария',
-  email: 'maria@example.com',
-  children: [
-    { id: 'c1', firstName: 'Артём', lastName: 'Иванов', age: 8, gender: 'male' },
-    { id: 'c2', firstName: 'Соня', lastName: 'Иванова', age: 5, gender: 'female' },
-  ],
-  enrollments: [
-    {
-      id: 'e1', clubId: 'swimming-dyush', clubName: 'Плавание · ДЮСШ №1',
-      branchId: 'borissenko', branchName: 'Борисенко',
-      schedule: 'Пн, Ср, Пт · 15:00–18:00',
-      days: ['Пн', 'Ср', 'Пт'], color: '#0ea5e9',
-      forChild: { id: 'c1', firstName: 'Артём', lastName: 'Иванов', age: 8, gender: 'male' as const },
-      enrolledAt: '2026-10-15',
-    },
-    {
-      id: 'e2', clubId: 'gimnastika-voskhod', clubName: 'Восход',
-      branchId: null, branchName: 'Нейбута',
-      schedule: 'Пн, Ср, Пт · 16:00–19:00',
-      days: ['Пн', 'Ср', 'Пт'], color: '#f43f5e',
-      forChild: { id: 'c2', firstName: 'Соня', lastName: 'Иванова', age: 5, gender: 'female' as const },
-      enrolledAt: '2026-11-01',
-    },
-  ],
-  activities: [
-    {
-      id: 'a1',
-      name: 'Акварель',
-      category: 'Творчество',
-      emoji: '🎨',
-      description: 'Художественная студия для детей. Занятия акварелью, гуашью, пастелью. Небольшие группы — индивидуальный подход.',
-      branches: [
-        { id: 'b1', name: 'Основной', address: 'пр. Океанский, 44', days: ['Вт', 'Чт', 'Сб'], timeFrom: '15:30', timeTo: '17:30' },
-        { id: 'b2', name: 'Снеговая', address: 'ул. Снеговая, 10', days: ['Ср', 'Пт'], timeFrom: '16:00', timeTo: '18:00' },
-      ],
-      enrollments: [
-        { id: 'ie1', personName: 'Петрова Анна', childName: 'Маша', branchName: 'Основной', enrolledAt: '2026-10-20' },
-        { id: 'ie2', personName: 'Сидоров Игорь', childName: null, branchName: 'Основной', enrolledAt: '2026-10-22' },
-        { id: 'ie3', personName: 'Козлова Вера', childName: 'Дима', branchName: 'Снеговая', enrolledAt: '2026-11-01' },
-        { id: 'ie4', personName: 'Новикова Елена', childName: 'Катя', branchName: 'Снеговая', enrolledAt: '2026-11-05' },
-      ],
-    },
-  ],
-};
+function withLocalData(user: User): AuthUser {
+  return { ...user, children: [], enrollments: [], activities: [] };
+}
 
+/**
+ * Сессия пользователя. Access-токен хранится только в памяти; refresh-токен — в HttpOnly cookie,
+ * поэтому после перезагрузки страницы сессия восстанавливается через `restoreSession()`.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  readonly user = signal<AuthUser | null>(null);
+  private readonly api = inject(ApiClient);
 
-  login(email: string, _password: string): void {
-    this.user.set({ ...MOCK_USER, email, name: email.split('@')[0] });
+  private readonly token = signal<string | null>(null);
+  private refreshInFlight: Observable<string> | null = null;
+
+  readonly user = signal<AuthUser | null>(null);
+  readonly accessToken = this.token.asReadonly();
+  readonly isAuthenticated = computed(() => this.user() !== null);
+
+  /** Тихое восстановление сессии при старте приложения. Ошибки не пробрасывает. */
+  async restoreSession(): Promise<void> {
+    try {
+      await firstValueFrom(this.refresh());
+      await this.reloadUser();
+    } catch {
+      this.clearSession();
+    }
   }
 
-  logout(): void {
+  async login(email: string, password: string): Promise<void> {
+    const res = await firstValueFrom(this.api.post<AuthResponse>('/auth/login', { email, password }));
+    this.startSession(res);
+  }
+
+  async register(name: string, email: string, password: string): Promise<void> {
+    const res = await firstValueFrom(this.api.post<AuthResponse>('/auth/register', { name, email, password }));
+    this.startSession(res);
+  }
+
+  /** Выход: инвалидирует refresh на сервере; локальная сессия очищается в любом случае. */
+  async logout(): Promise<void> {
+    try {
+      await firstValueFrom(this.api.post<void>('/auth/logout'));
+    } catch {
+      // сессия всё равно завершается локально
+    } finally {
+      this.clearSession();
+    }
+  }
+
+  /** `GET /api/me` — обновляет профиль и счётчики. */
+  async reloadUser(): Promise<void> {
+    const user = await firstValueFrom(this.api.get<User>('/me'));
+    const current = this.user();
+    this.user.set(current ? { ...current, ...user } : withLocalData(user));
+  }
+
+  /**
+   * Обновление access-токена по cookie. Параллельные вызовы (несколько запросов получили 401)
+   * разделяют один запрос к серверу.
+   */
+  refresh(): Observable<string> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.api.post<RefreshResponse>('/auth/refresh').pipe(
+        map(res => res.accessToken),
+        tap(token => this.token.set(token)),
+        finalize(() => { this.refreshInFlight = null; }),
+        shareReplay({ bufferSize: 1, refCount: false }),
+      );
+    }
+    return this.refreshInFlight;
+  }
+
+  clearSession(): void {
+    this.token.set(null);
     this.user.set(null);
   }
+
+  private startSession(res: AuthResponse): void {
+    this.token.set(res.accessToken);
+    this.user.set(withLocalData(res.user));
+  }
+
+  // ─── Временные локальные операции ЛК (до перевода ЛК на API) ──────────────
 
   addChild(firstName: string, lastName: string, age: number, gender: Child['gender']): void {
     const u = this.user();
