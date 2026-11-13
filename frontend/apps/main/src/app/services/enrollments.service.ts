@@ -48,6 +48,23 @@ export class EnrollmentsService {
     );
   }
 
+  /** `POST /api/enrollments/{id}/cancel` — отмена своей заявки; отменённые в списке не показываем. */
+  cancel(id: string): Observable<Enrollment> {
+    return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/cancel`).pipe(
+      tap(() => this.mine.update(list => list.filter(e => e.id !== id))),
+    );
+  }
+
+  /** `POST /api/enrollments/{id}/confirm` — подтверждение входящей заявки организатором. */
+  confirm(id: string): Observable<Enrollment> {
+    return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/confirm`);
+  }
+
+  /** `POST /api/enrollments/{id}/reject` — отклонение входящей заявки, причина необязательна. */
+  reject(id: string, reason?: string): Observable<Enrollment> {
+    return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/reject`, reason ? { reason } : {});
+  }
+
   private reset(): void {
     this.mine.set([]);
     this.status.set('idle');

@@ -2,61 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
 
 import { ApiClient } from '../api/api-client';
-import { AuthResponse, Child, RefreshResponse, User } from '../models/user.model';
-
-export type { Child } from '../models/user.model';
-
-// ─── Временные типы ЛК (до перевода ЛК на API) ───────────────────────────────
-
-export interface Enrollment {
-  id: string;
-  clubId: string;
-  clubName: string;
-  branchId: string | null;
-  branchName: string;
-  schedule: string;
-  days: string[];  // ['Пн','Ср','Пт'] для календаря
-  color: string;   // цвет кружка для точек в календаре
-  forChild: Child | null;
-  enrolledAt: string;
-}
-
-export interface ActivityBranch {
-  id: string;
-  name: string;
-  address: string;
-  days: string[];
-  timeFrom: string;
-  timeTo: string;
-}
-
-export interface IncomingEnrollment {
-  id: string;
-  personName: string;
-  childName: string | null;
-  branchName: string;
-  enrolledAt: string;
-}
-
-export interface ManagedActivity {
-  id: string;
-  name: string;
-  category: string;
-  emoji: string;
-  description: string;
-  branches: ActivityBranch[];
-  enrollments: IncomingEnrollment[];
-}
-
-export interface AuthUser extends User {
-  children: Child[];
-  enrollments: Enrollment[];
-  activities: ManagedActivity[];
-}
-
-function withLocalData(user: User): AuthUser {
-  return { ...user, children: [], enrollments: [], activities: [] };
-}
+import { AuthResponse, RefreshResponse, User } from '../models/user.model';
 
 /**
  * Сессия пользователя. Access-токен хранится только в памяти; refresh-токен — в HttpOnly cookie,
@@ -69,7 +15,7 @@ export class AuthService {
   private readonly token = signal<string | null>(null);
   private refreshInFlight: Observable<string> | null = null;
 
-  readonly user = signal<AuthUser | null>(null);
+  readonly user = signal<User | null>(null);
   readonly accessToken = this.token.asReadonly();
   readonly isAuthenticated = computed(() => this.user() !== null);
 
@@ -106,9 +52,7 @@ export class AuthService {
 
   /** `GET /api/me` — обновляет профиль и счётчики. */
   async reloadUser(): Promise<void> {
-    const user = await firstValueFrom(this.api.get<User>('/me'));
-    const current = this.user();
-    this.user.set(current ? { ...current, ...user } : withLocalData(user));
+    this.user.set(await firstValueFrom(this.api.get<User>('/me')));
   }
 
   /**
@@ -134,34 +78,6 @@ export class AuthService {
 
   private startSession(res: AuthResponse): void {
     this.token.set(res.accessToken);
-    this.user.set(withLocalData(res.user));
-  }
-
-  // ─── Временные локальные операции ЛК (до перевода ЛК на API) ──────────────
-
-  addChild(firstName: string, lastName: string, age: number, gender: Child['gender']): void {
-    const u = this.user();
-    if (!u) return;
-    const child: Child = { id: `c${Date.now()}`, firstName, lastName, age, gender };
-    this.user.set({ ...u, children: [...u.children, child] });
-  }
-
-  removeChild(id: string): void {
-    const u = this.user();
-    if (!u) return;
-    this.user.set({ ...u, children: u.children.filter(c => c.id !== id) });
-  }
-
-  cancelEnrollment(id: string): void {
-    const u = this.user();
-    if (!u) return;
-    this.user.set({ ...u, enrollments: u.enrollments.filter(e => e.id !== id) });
-  }
-
-  addActivity(activity: Omit<ManagedActivity, 'id' | 'enrollments'>): void {
-    const u = this.user();
-    if (!u) return;
-    const a: ManagedActivity = { ...activity, id: `a${Date.now()}`, enrollments: [] };
-    this.user.set({ ...u, activities: [...u.activities, a] });
+    this.user.set(res.user);
   }
 }
