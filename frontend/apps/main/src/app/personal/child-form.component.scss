@@ -1,0 +1,23 @@
+@use 'form';
+
+:host { display: block; }
+
+.add-form--inline {
+  margin: 0 0 10px;
+  box-shadow: 0 0 0 1.5px #6880f8;
+}
+
+.btn-add-child {
+  width: 100%;
+  padding: 10px;
+  background: #f25e02;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.9; }
+  &:disabled { opacity: 0.6; cursor: progress; }
+}

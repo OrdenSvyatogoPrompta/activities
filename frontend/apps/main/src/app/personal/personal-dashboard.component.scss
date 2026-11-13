@@ -26,6 +26,12 @@
     text-decoration: none;
   }
 
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
   &__logout {
     font-size: 13px;
     font-weight: 500;
@@ -432,8 +438,7 @@
     margin: 0;
   }
 
-  &__remove {
-    margin-left: auto;
+  &__btn {
     width: 28px;
     height: 28px;
     border-radius: 50%;
@@ -445,104 +450,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     transition: background 0.12s, color 0.12s;
     &:hover { background: #fef2f2; color: #ef4444; }
-  }
-}
+    &:disabled { opacity: 0.4; cursor: progress; }
 
-// ─── Форма добавления ─────────────────────────────────────────────────────────
-
-.add-form {
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.form-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0;
-}
-
-.form-row {
-  display: flex;
-  gap: 8px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-
-  &--narrow { flex: 0 0 72px; }
-
-  &__label {
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #475569;
-  }
-
-  &__input {
-    padding: 8px 12px;
-    font-size: 13.5px;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 8px;
-    outline: none;
-    color: #1e293b;
-    width: 100%;
-    transition: border-color 0.15s, box-shadow 0.15s;
-
-    &::placeholder { color: #94a3b8; }
-
-    &:focus {
-      border-color: #6880f8;
-      box-shadow: 0 0 0 3px #6880f81a;
+    &--edit {
+      margin-left: auto;
+      &:hover { background: #6880f81a; color: #6880f8; }
     }
   }
 }
 
-.form-actions {
-  display: flex;
-  gap: 8px;
-}
-
 // ─── Кнопки ───────────────────────────────────────────────────────────────────
-
-.btn-primary {
-  flex: 1;
-  padding: 10px 16px;
-  background: #6880f8;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  &:hover { background: #5a6de8; }
-}
-
-.btn-ghost {
-  padding: 10px 16px;
-  background: #f1f5f9;
-  color: #64748b;
-  border: none;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  &:hover { background: #e2e8f0; }
-}
 
 .btn-create {
   width: 100%;
@@ -557,20 +477,6 @@
   transition: all 0.15s;
   margin-top: 4px;
   &:hover { background: #6880f808; border-color: #6880f8; }
-}
-
-.btn-add-child {
-  width: 100%;
-  padding: 10px;
-  background: #f25e02;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  &:hover { opacity: 0.9; }
 }
 
 // ─── Переключатель вью ────────────────────────────────────────────────────────
@@ -694,83 +600,6 @@
   }
 }
 
-// ─── Убрать стрелки у number ──────────────────────────────────────────────────
-
-.field__input--no-spin {
-  -moz-appearance: textfield;
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button { -webkit-appearance: none; }
-}
-
-// ─── Select / Textarea ────────────────────────────────────────────────────────
-
-.field__select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
-  cursor: pointer;
-}
-
-.field__textarea {
-  resize: vertical;
-  min-height: 80px;
-  line-height: 1.5;
-}
-
-// ─── День-пикер ───────────────────────────────────────────────────────────────
-
-.day-picker {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.day-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1.5px solid #e2e8f0;
-  background: transparent;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.12s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:hover:not(&--active) { border-color: #6880f8; color: #6880f8; }
-
-  &--active {
-    background: #6880f8;
-    border-color: #6880f8;
-    color: #fff;
-  }
-}
-
-// ─── Форма филиала ────────────────────────────────────────────────────────────
-
-.branch-form {
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  &__title {
-    font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin: 0;
-  }
-}
-
 // ─── Детальный просмотр активности ────────────────────────────────────────────
 
 .back-btn {
@@ -891,12 +720,6 @@
   font-style: italic;
 }
 
-.gender-row {
-  display: flex;
-  gap: 6px;
-  padding-top: 4px;
-}
-
 // ─── Пусто ────────────────────────────────────────────────────────────────────
 
 .empty {
@@ -941,11 +764,6 @@
 
 .item-error { margin-top: 6px; }
 
-.field__error {
-  font-size: 11.5px;
-  color: #dc2626;
-}
-
 .cal__dot--pending { opacity: 0.35; }
 
 .activity-card .status-badge { margin-top: 6px; }
@@ -982,7 +800,16 @@
   gap: 6px;
   margin-bottom: 4px;
 
-  .field__input { padding: 6px 10px; font-size: 12.5px; }
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    &:focus { border-color: #6880f8; }
+  }
 }
 
 .ie-btn {
@@ -1001,39 +828,6 @@
   &:disabled { opacity: 0.6; cursor: progress; }
 }
 
-.slot-group {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1.5px dashed #e2e8f0;
-  border-radius: 10px;
-  background: #fff;
 
-  &__remove {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    border: none;
-    background: none;
-    color: #cbd5e1;
-    cursor: pointer;
-    &:hover { color: #ef4444; }
-  }
-}
 
-.btn-link {
-  align-self: flex-start;
-  padding: 0;
-  border: none;
-  background: none;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #6880f8;
-  cursor: pointer;
-}
-
-.btn-primary:disabled,
-.btn-ghost:disabled,
-.btn-add-child:disabled { opacity: 0.6; cursor: progress; }
+.incoming-note { margin-bottom: 10px; }

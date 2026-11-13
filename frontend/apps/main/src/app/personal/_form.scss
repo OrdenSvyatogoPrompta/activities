@@ -1,0 +1,143 @@
+// Общие стили форм личного кабинета. Подключаются через `@use 'form';` в компонентах ЛК
+// (стили компонентов инкапсулированы, поэтому каждый включает свою копию).
+
+.add-form {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+
+  &--narrow { flex: 0 0 72px; }
+
+  &__label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  &__input {
+    padding: 8px 12px;
+    font-size: 13.5px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    color: #1e293b;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &::placeholder { color: #94a3b8; }
+
+    &:focus {
+      border-color: #6880f8;
+      box-shadow: 0 0 0 3px #6880f81a;
+    }
+  }
+
+  &__error {
+    font-size: 11.5px;
+    color: #dc2626;
+  }
+}
+
+.field__input--no-spin {
+  -moz-appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; }
+}
+
+.field__select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.field__textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-primary,
+.btn-ghost {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  &:disabled { opacity: 0.6; cursor: progress; }
+}
+
+.btn-primary {
+  flex: 1;
+  background: #6880f8;
+  color: #fff;
+  &:hover { background: #5a6de8; }
+}
+
+.btn-ghost {
+  background: #f1f5f9;
+  color: #64748b;
+  &:hover { background: #e2e8f0; }
+}
+
+.filter-pill {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover:not(&--active) { border-color: #6880f8; color: #6880f8; }
+
+  &--active {
+    background: #6880f8;
+    color: #fff;
+    border-color: #6880f8;
+  }
+}
+
+.gender-row {
+  display: flex;
+  gap: 6px;
+  padding-top: 4px;
+  flex-wrap: wrap;
+}

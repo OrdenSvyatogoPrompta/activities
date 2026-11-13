@@ -1,101 +1,56 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
-import { ApiError, formErrorMessage, toApiError } from '../api/api-error';
-import {
-  ACTIVITY_STATUS_LABEL, Activity, ActivityBranch, CreateActivityPayload, IncomingEnrollment,
-} from '../models/activity.model';
-import { ClubCategory, DayOfWeek, PriceType, ScheduleSlot, VisitType } from '../models/club.model';
+import { toApiError } from '../api/api-error';
+import { ACTIVITY_STATUS_LABEL, Activity, IncomingEnrollment } from '../models/activity.model';
+import { DayOfWeek } from '../models/club.model';
 import { ENROLLMENT_STATUS_LABEL, Enrollment, isActiveEnrollment } from '../models/enrollment.model';
-import { CreateChildPayload, Gender } from '../models/user.model';
+import { Child } from '../models/user.model';
 import { ActivitiesService } from '../services/activities.service';
 import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { EnrollmentsService } from '../services/enrollments.service';
+import { ActivityFormComponent } from './activity-form.component';
+import { ChildFormComponent } from './child-form.component';
+import { VISIT_TYPE_LABEL, WEEK_DAYS } from './personal.constants';
+import { ProfileNameComponent } from './profile-name.component';
 
 type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
-
-/** Группа слотов в форме: несколько дней с одним временем. */
-interface SlotGroup {
-  days: DayOfWeek[];
-  timeFrom: string;
-  timeTo: string;
-}
 
 interface CalendarDot {
   color: string;
   pending: boolean;
 }
 
-interface IncomingGroup {
-  branchId: string;
-  branchName: string;
-  items: IncomingEnrollment[];
+/** Входящие заявки активности: по филиалам активности (`activityBranchId`) и «прочие». */
+interface IncomingByBranch {
+  byBranch: Record<string, IncomingEnrollment[]>;
+  other: IncomingEnrollment[];
 }
 
 const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const WEEK_DAYS: DayOfWeek[] = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
-
-const VISIT_TYPE_LABEL: Record<VisitType, string> = {
-  recurring: 'Постоянные занятия',
-  oneTime: 'Разовые занятия',
-  both: 'Постоянные и разовые',
-};
-const VISIT_TYPES = Object.keys(VISIT_TYPE_LABEL) as VisitType[];
-
-const PRICE_TYPE_LABEL: Record<PriceType, string> = {
-  free: 'Бесплатно',
-  paid: 'Платно',
-  pushkin: '🎭 Пушкинская карта',
-};
-const PRICE_TYPES: PriceType[] = ['free', 'paid', 'pushkin'];
-
-const ACTIVITY_FIELDS = [
-  'name', 'category', 'emoji', 'description', 'ageMin', 'ageMax', 'visitType', 'priceType',
-  'priceAmount', 'tags', 'branches[0].name', 'branches[0].address', 'branches[0].phone',
-];
-/** Ключ ошибки для блока расписания (все `branches[0].slots…` от сервера). */
-const SLOTS_KEY = 'branches[0].slots';
-const CHILD_FIELDS = ['firstName', 'lastName', 'age', 'gender'];
-
-const EMPTY_SLOT_GROUP: SlotGroup = { days: [], timeFrom: '10:00', timeTo: '12:00' };
-
-/** «Пн, Ср · 15:00–18:00\nВт · 10:00–12:00» — слоты с одинаковым временем вместе. */
-function formatSlots(slots: ScheduleSlot[]): string {
-  const groups = new Map<string, DayOfWeek[]>();
-  const sorted = [...slots].sort((a, b) => WEEK_DAYS.indexOf(a.day) - WEEK_DAYS.indexOf(b.day));
-  for (const s of sorted) {
-    const key = `${s.timeFrom}–${s.timeTo}`;
-    groups.set(key, [...(groups.get(key) ?? []), s.day]);
-  }
-  return [...groups].map(([time, days]) => `${days.join(', ')} · ${time}`).join('\n');
-}
-
-/** Неотрицательное целое из поля ввода или `null`. */
-function toInt(value: string): number | null {
-  const trimmed = value.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
-}
 
 @Component({
   selector: 'act-personal-dashboard',
-  imports: [RouterLink],
+  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, ProfileNameComponent],
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (user(); as user) {
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
-        <button class="header__logout" (click)="logout()">Выйти</button>
+        <div class="header__actions">
+          <button class="header__logout" (click)="logout()">Выйти</button>
+        </div>
       </header>
 
       <div class="hero">
         <div class="hero__top">
           <div class="hero__avatar">{{ (user.name || user.email)[0].toUpperCase() }}</div>
           <div class="hero__info">
-            <p class="hero__name">{{ user.name }}</p>
+            <act-profile-name />
             <p class="hero__email">{{ user.email }}</p>
           </div>
         </div>
@@ -256,13 +211,17 @@ function toInt(value: string): number | null {
                 <p class="note">Комментарий модератора: {{ act.moderationComment }}</p>
               }
               <p class="act-detail__meta">
-                {{ act.ageMin }}–{{ act.ageMax }} лет · {{ visitTypeLabel[act.visitType] }} · {{ priceLabel(act) }}
+                {{ act.age }} · {{ visitTypeLabel[act.visitType] }} · {{ act.price }}{{ act.priceType === 'pushkin' ? ' · Пушкинская карта' : '' }}
               </p>
               @if (act.description) {
                 <p class="act-detail__desc">{{ act.description }}</p>
               }
             </div>
 
+            <p class="section-title incoming-title">Филиалы и заявки</p>
+            @if (act.status !== 'approved') {
+              <p class="ie-empty incoming-note">Заявки появятся после публикации активности</p>
+            }
             @for (branch of act.branches; track branch.id) {
               <div class="branch-block">
                 <div class="branch-block__head">
@@ -272,203 +231,59 @@ function toInt(value: string): number | null {
                 @if (branch.phone) {
                   <div class="branch-block__sched">📞 {{ branch.phone }}</div>
                 }
-                <div class="branch-block__sched">{{ branchSchedule(branch) }}</div>
+                <div class="branch-block__sched">{{ branch.schedule }}</div>
+                @if (act.status === 'approved') {
+                  <ng-container
+                    *ngTemplateOutlet="incomingList; context: { $implicit: incoming().byBranch[branch.id] ?? [] }" />
+                }
+              </div>
+            }
+            @if (incoming().other.length > 0) {
+              <div class="branch-block">
+                <div class="branch-block__head">
+                  <span class="branch-block__name">Прочие</span>
+                  <span class="branch-block__addr">филиал не указан</span>
+                </div>
+                <ng-container *ngTemplateOutlet="incomingList; context: { $implicit: incoming().other }" />
               </div>
             }
 
-            <p class="section-title incoming-title">Входящие заявки</p>
-            @if (act.status !== 'approved') {
-              <p class="ie-empty">Заявки появятся после публикации активности</p>
-            } @else if (incomingGroups().length === 0) {
-              <p class="ie-empty">Пока нет заявок</p>
-            }
-            @for (group of incomingGroups(); track group.branchId) {
-              <div class="branch-block">
-                <div class="branch-block__head">
-                  <span class="branch-block__name">📍 {{ group.branchName }}</span>
-                </div>
-                <div class="branch-block__enrolls">
-                  @for (ie of group.items; track ie.id) {
-                    <div class="ie-row">
-                      <span class="ie-row__name">{{ ie.personName }}</span>
-                      @if (ie.childName) { <span class="ie-row__child">👶 {{ ie.childName }}</span> }
-                      <span class="ie-row__date">{{ ie.enrolledAt }}</span>
-                      <span [class]="'status-badge status-badge--' + ie.status">{{ enrollmentStatusLabel[ie.status] }}</span>
-                    </div>
-                    @if (ie.status === 'pending') {
-                      @if (rejectingId() === ie.id) {
-                        <div class="ie-actions">
-                          <input class="field__input" type="text" placeholder="Причина отказа (необязательно)"
-                            [value]="rejectReason()" (input)="rejectReason.set($any($event.target).value)" />
-                          <button class="ie-btn ie-btn--danger" [disabled]="busyId() === ie.id" (click)="submitReject(ie)">Отклонить</button>
-                          <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="rejectingId.set(null)">Отмена</button>
-                        </div>
-                      } @else {
-                        <div class="ie-actions">
-                          <button class="ie-btn ie-btn--ok" [disabled]="busyId() === ie.id" (click)="confirmIncoming(ie)">Подтвердить</button>
-                          <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="startReject(ie)">Отклонить</button>
-                        </div>
-                      }
+            <ng-template #incomingList let-items>
+              <div class="branch-block__enrolls">
+                @for (ie of $any(items); track ie.id) {
+                  <div class="ie-row">
+                    <span class="ie-row__name">{{ ie.personName }}</span>
+                    @if (ie.childName) { <span class="ie-row__child">👶 {{ ie.childName }}</span> }
+                    <span class="ie-row__date">{{ ie.enrolledAt }}</span>
+                    <span [class]="'status-badge status-badge--' + ie.status">{{ enrollmentStatusLabel[ie.status] }}</span>
+                  </div>
+                  @if (ie.status === 'pending') {
+                    @if (rejectingId() === ie.id) {
+                      <div class="ie-actions">
+                        <input class="ie-actions__input" type="text" placeholder="Причина отказа (необязательно)" maxlength="500"
+                          [value]="rejectReason()" (input)="rejectReason.set($any($event.target).value)" />
+                        <button class="ie-btn ie-btn--danger" [disabled]="busyId() === ie.id" (click)="submitReject(ie)">Отклонить</button>
+                        <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="rejectingId.set(null)">Отмена</button>
+                      </div>
+                    } @else {
+                      <div class="ie-actions">
+                        <button class="ie-btn ie-btn--ok" [disabled]="busyId() === ie.id" (click)="confirmIncoming(ie)">Подтвердить</button>
+                        <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="startReject(ie)">Отклонить</button>
+                      </div>
                     }
-                    @if (itemErrors()[ie.id]; as msg) { <p class="inline-error">{{ msg }}</p> }
                   }
-                </div>
+                  @if (itemErrors()[ie.id]; as msg) { <p class="inline-error">{{ msg }}</p> }
+                } @empty {
+                  <p class="ie-empty">Пока нет заявок</p>
+                }
               </div>
-            }
+            </ng-template>
           }
 
           <!-- Список активностей / форма создания -->
           @if (!selectedActivity()) {
             @if (showCreateForm()) {
-              <div class="add-form">
-                <p class="form-title">Новая активность</p>
-
-                <div class="form-row">
-                  <div class="field">
-                    <label class="field__label">Название</label>
-                    <input class="field__input" type="text" placeholder="Название активности" maxlength="100"
-                      [value]="newName()" (input)="newName.set($any($event.target).value)" />
-                    @if (activityErrors()['name']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-                  <div class="field field--narrow">
-                    <label class="field__label">Эмодзи</label>
-                    <input class="field__input" type="text" placeholder="🎯"
-                      [value]="newEmoji()" (input)="newEmoji.set($any($event.target).value)" />
-                  </div>
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Категория</label>
-                  <select class="field__input field__select"
-                    [value]="newCategory()" (change)="newCategory.set($any($event.target).value)">
-                    <option value="" disabled>Выберите категорию</option>
-                    @for (cat of categories; track cat) {
-                      <option [value]="cat">{{ cat }}</option>
-                    }
-                  </select>
-                  @if (activityErrors()['category']; as msg) { <span class="field__error">{{ msg }}</span> }
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Описание</label>
-                  <textarea class="field__input field__textarea" placeholder="Расскажите об активности..."
-                    [value]="newDescription()" (input)="newDescription.set($any($event.target).value)"></textarea>
-                  @if (activityErrors()['description']; as msg) { <span class="field__error">{{ msg }}</span> }
-                </div>
-
-                <div class="form-row">
-                  <div class="field">
-                    <label class="field__label">Возраст от</label>
-                    <input class="field__input field__input--no-spin" type="number" min="0" max="99" placeholder="5"
-                      [value]="newAgeMin()" (input)="newAgeMin.set($any($event.target).value)" />
-                    @if (activityErrors()['ageMin']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-                  <div class="field">
-                    <label class="field__label">Возраст до</label>
-                    <input class="field__input field__input--no-spin" type="number" min="0" max="99" placeholder="14"
-                      [value]="newAgeMax()" (input)="newAgeMax.set($any($event.target).value)" />
-                    @if (activityErrors()['ageMax']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Формат</label>
-                  <select class="field__input field__select"
-                    [value]="newVisitType()" (change)="newVisitType.set($any($event.target).value)">
-                    @for (vt of visitTypes; track vt) {
-                      <option [value]="vt">{{ visitTypeLabel[vt] }}</option>
-                    }
-                  </select>
-                  @if (activityErrors()['visitType']; as msg) { <span class="field__error">{{ msg }}</span> }
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Стоимость</label>
-                  <div class="gender-row">
-                    @for (pt of priceTypes; track pt) {
-                      <button class="filter-pill" [class.filter-pill--active]="newPriceType() === pt"
-                        (click)="newPriceType.set(pt)">{{ priceTypeLabel[pt] }}</button>
-                    }
-                  </div>
-                  @if (newPriceType() !== 'free') {
-                    <input class="field__input field__input--no-spin" type="number" min="0" placeholder="Сумма, ₽ в месяц"
-                      [value]="newPriceAmount()" (input)="newPriceAmount.set($any($event.target).value)" />
-                  }
-                  @if (activityErrors()['priceAmount'] || activityErrors()['priceType']; as msg) {
-                    <span class="field__error">{{ msg }}</span>
-                  }
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Теги (через запятую)</label>
-                  <input class="field__input" type="text" placeholder="рисование, акварель"
-                    [value]="newTags()" (input)="newTags.set($any($event.target).value)" />
-                  @if (activityErrors()['tags']; as msg) { <span class="field__error">{{ msg }}</span> }
-                </div>
-
-                <!-- Филиал -->
-                <div class="branch-form">
-                  <p class="branch-form__title">Филиал</p>
-                  <div class="field">
-                    <label class="field__label">Название филиала</label>
-                    <input class="field__input" type="text" placeholder="Основной"
-                      [value]="branchName()" (input)="branchName.set($any($event.target).value)" />
-                    @if (activityErrors()['branches[0].name']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-                  <div class="field">
-                    <label class="field__label">Адрес</label>
-                    <input class="field__input" type="text" placeholder="ул. Примерная, 1"
-                      [value]="branchAddress()" (input)="branchAddress.set($any($event.target).value)" />
-                    @if (activityErrors()['branches[0].address']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-                  <div class="field">
-                    <label class="field__label">Телефон</label>
-                    <input class="field__input" type="tel" placeholder="+7 423 000-00-00"
-                      [value]="branchPhone()" (input)="branchPhone.set($any($event.target).value)" />
-                    @if (activityErrors()['branches[0].phone']; as msg) { <span class="field__error">{{ msg }}</span> }
-                  </div>
-
-                  <span class="field__label">Расписание</span>
-                  @for (group of slotGroups(); track $index; let i = $index) {
-                    <div class="slot-group">
-                      <div class="day-picker">
-                        @for (d of weekDays; track d) {
-                          <button class="day-btn" [class.day-btn--active]="group.days.includes(d)"
-                            (click)="toggleGroupDay(i, d)">{{ d }}</button>
-                        }
-                      </div>
-                      <div class="form-row">
-                        <div class="field">
-                          <label class="field__label">Начало</label>
-                          <input class="field__input" type="time" [value]="group.timeFrom"
-                            (change)="setGroupTime(i, 'timeFrom', $any($event.target).value)" />
-                        </div>
-                        <div class="field">
-                          <label class="field__label">Конец</label>
-                          <input class="field__input" type="time" [value]="group.timeTo"
-                            (change)="setGroupTime(i, 'timeTo', $any($event.target).value)" />
-                        </div>
-                      </div>
-                      @if (slotGroups().length > 1) {
-                        <button class="slot-group__remove" title="Убрать время" (click)="removeSlotGroup(i)">✕</button>
-                      }
-                    </div>
-                  }
-                  <button class="btn-link" (click)="addSlotGroup()">+ Добавить другое время</button>
-                  @if (activityErrors()[slotsKey]; as msg) { <span class="field__error">{{ msg }}</span> }
-                </div>
-
-                @if (activityFormError()) {
-                  <p class="inline-error">{{ activityFormError() }}</p>
-                }
-
-                <div class="form-actions">
-                  <button class="btn-primary" [disabled]="creating()" (click)="createActivity()">
-                    {{ creating() ? 'Отправляем…' : 'Отправить на модерацию' }}
-                  </button>
-                  <button class="btn-ghost" [disabled]="creating()" (click)="showCreateForm.set(false)">Отмена</button>
-                </div>
-              </div>
+              <act-activity-form (created)="showCreateForm.set(false)" (cancelled)="showCreateForm.set(false)" />
             } @else {
               @if (activitiesService.status() === 'loading' && activities().length === 0) {
                 <div class="state"><div class="spinner"></div></div>
@@ -483,7 +298,7 @@ function toInt(value: string): number | null {
                     <div class="activity-card__icon">{{ a.emoji }}</div>
                     <div>
                       <p class="activity-card__name">{{ a.name }}</p>
-                      <p class="activity-card__category">{{ a.category }}</p>
+                      <p class="activity-card__category">{{ a.category }} · {{ a.age }} · {{ a.price }}</p>
                       <span [class]="'status-badge status-badge--' + a.status">{{ activityStatusLabel[a.status] }}</span>
                     </div>
                     <div class="activity-card__count">
@@ -521,56 +336,26 @@ function toInt(value: string): number | null {
           }
 
           @for (child of children(); track child.id) {
-            <div class="child-card">
-              <div class="child-card__avatar">{{ child.gender === 'male' ? '👦' : '👧' }}</div>
-              <div>
-                <p class="child-card__name">{{ child.firstName }} {{ child.lastName }}</p>
-                <p class="child-card__age">{{ child.age }} лет</p>
-                @if (itemErrors()[child.id]; as msg) { <p class="inline-error item-error">{{ msg }}</p> }
+            @if (editingChildId() === child.id) {
+              <act-child-form [child]="child" (saved)="onChildSaved($event)" (cancelled)="editingChildId.set(null)" />
+            } @else {
+              <div class="child-card">
+                <div class="child-card__avatar">{{ child.gender === 'male' ? '👦' : '👧' }}</div>
+                <div>
+                  <p class="child-card__name">{{ child.firstName }} {{ child.lastName }}</p>
+                  <p class="child-card__age">{{ child.age }} {{ yearsLabel(child.age) }}</p>
+                  @if (itemErrors()[child.id]; as msg) { <p class="inline-error item-error">{{ msg }}</p> }
+                </div>
+                <button class="child-card__btn child-card__btn--edit" title="Изменить" aria-label="Изменить"
+                  [disabled]="busyId() === child.id" (click)="editChild(child.id)">✎</button>
+                <button class="child-card__btn" title="Удалить" aria-label="Удалить" [disabled]="busyId() === child.id"
+                  (click)="removeChild(child.id)">✕</button>
               </div>
-              <button class="child-card__remove" title="Удалить" [disabled]="busyId() === child.id"
-                (click)="removeChild(child.id)">✕</button>
-            </div>
+            }
           }
 
-          <div class="add-form">
-            <p class="form-title">Добавить ребёнка</p>
-            <div class="form-row">
-              <div class="field">
-                <label class="field__label">Имя</label>
-                <input class="field__input" type="text" placeholder="Артём" maxlength="50"
-                  [value]="childFirstName()" (input)="childFirstName.set($any($event.target).value)" />
-                @if (childErrors()['firstName']; as msg) { <span class="field__error">{{ msg }}</span> }
-              </div>
-              <div class="field">
-                <label class="field__label">Фамилия</label>
-                <input class="field__input" type="text" placeholder="Иванов" maxlength="50"
-                  [value]="childLastName()" (input)="childLastName.set($any($event.target).value)" />
-                @if (childErrors()['lastName']; as msg) { <span class="field__error">{{ msg }}</span> }
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="field field--narrow">
-                <label class="field__label">Возраст</label>
-                <input class="field__input field__input--no-spin" type="number" min="1" max="18" placeholder="8"
-                  [value]="childAge() || ''" (input)="childAge.set(+$any($event.target).value)" />
-              </div>
-              <div class="field">
-                <label class="field__label">Пол</label>
-                <div class="gender-row">
-                  <button class="filter-pill" [class.filter-pill--active]="childGender() === 'male'"
-                    (click)="childGender.set('male')">👦 Мальчик</button>
-                  <button class="filter-pill" [class.filter-pill--active]="childGender() === 'female'"
-                    (click)="childGender.set('female')">👧 Девочка</button>
-                </div>
-              </div>
-            </div>
-            @if (childErrors()['age'] || childErrors()['gender']; as msg) { <span class="field__error">{{ msg }}</span> }
-            @if (childFormError()) { <p class="inline-error">{{ childFormError() }}</p> }
-            <button class="btn-add-child" [disabled]="addingChild()" (click)="addChild()">
-              {{ addingChild() ? 'Добавляем…' : 'Добавить' }}
-            </button>
-          </div>
+          <act-child-form />
+
         }
 
       </div>
@@ -595,16 +380,13 @@ export class PersonalDashboardComponent {
   readonly childFilter = signal<string | null>(null);
   readonly selectedActivityId = signal<string | null>(null);
   readonly showCreateForm = signal(false);
+  /** Ребёнок, открытый на inline-редактирование. */
+  readonly editingChildId = signal<string | null>(null);
 
-  readonly weekDays   = WEEK_DAYS;
-  readonly categories = CATEGORIES;
-  readonly visitTypes = VISIT_TYPES;
-  readonly priceTypes = PRICE_TYPES;
+  readonly weekDays = WEEK_DAYS;
   readonly visitTypeLabel = VISIT_TYPE_LABEL;
-  readonly priceTypeLabel = PRICE_TYPE_LABEL;
   readonly enrollmentStatusLabel = ENROLLMENT_STATUS_LABEL;
   readonly activityStatusLabel   = ACTIVITY_STATUS_LABEL;
-  readonly slotsKey = SLOTS_KEY;
   readonly today    = new Date().getDate();
 
   /** id элемента (заявки, входящей заявки, ребёнка), по которому идёт запрос. */
@@ -615,34 +397,6 @@ export class PersonalDashboardComponent {
   // отклонение входящей заявки
   readonly rejectingId  = signal<string | null>(null);
   readonly rejectReason = signal('');
-
-  // форма создания активности
-  readonly newName        = signal('');
-  readonly newCategory    = signal<ClubCategory | ''>('');
-  readonly newEmoji       = signal('');
-  readonly newDescription = signal('');
-  readonly newAgeMin      = signal('');
-  readonly newAgeMax      = signal('');
-  readonly newVisitType   = signal<VisitType>('recurring');
-  readonly newPriceType   = signal<PriceType>('free');
-  readonly newPriceAmount = signal('');
-  readonly newTags        = signal('');
-  readonly branchName     = signal('Основной');
-  readonly branchAddress  = signal('');
-  readonly branchPhone    = signal('');
-  readonly slotGroups     = signal<SlotGroup[]>([{ ...EMPTY_SLOT_GROUP }]);
-  readonly activityErrors    = signal<Record<string, string>>({});
-  readonly activityFormError = signal('');
-  readonly creating          = signal(false);
-
-  // форма добавления ребёнка
-  readonly childFirstName = signal('');
-  readonly childLastName  = signal('');
-  readonly childAge       = signal(0);
-  readonly childGender    = signal<Gender>('male');
-  readonly childErrors    = signal<Record<string, string>>({});
-  readonly childFormError = signal('');
-  readonly addingChild    = signal(false);
 
   /** Счётчики: по загруженным спискам, пока их нет — из `user.stats` (`GET /api/me`). */
   readonly stats = computed(() => {
@@ -693,18 +447,23 @@ export class PersonalDashboardComponent {
     return id ? this.activities().find(a => a.id === id) ?? null : null;
   });
 
-  /** Входящие заявки выбранной активности, сгруппированные по филиалу кружка (`branchId`). */
-  readonly incomingGroups = computed<IncomingGroup[]>(() => {
+  /**
+   * Входящие заявки выбранной активности по её филиалам (`activityBranchId`).
+   * Заявки без филиала или с филиалом, которого нет среди филиалов активности, — в «прочих».
+   */
+  readonly incoming = computed<IncomingByBranch>(() => {
+    const result: IncomingByBranch = { byBranch: {}, other: [] };
     const act = this.selectedActivity();
-    if (!act) return [];
-    const groups = new Map<string, IncomingGroup>();
+    if (!act) return result;
+    const branchIds = new Set(act.branches.map(b => b.id));
     for (const ie of act.enrollments) {
-      const key = ie.branchId ?? '';
-      const group = groups.get(key) ?? { branchId: key, branchName: ie.branchName, items: [] };
-      group.items.push(ie);
-      groups.set(key, group);
+      if (ie.activityBranchId && branchIds.has(ie.activityBranchId)) {
+        (result.byBranch[ie.activityBranchId] ??= []).push(ie);
+      } else {
+        result.other.push(ie);
+      }
     }
-    return [...groups.values()];
+    return result;
   });
 
   constructor() {
@@ -750,16 +509,8 @@ export class PersonalDashboardComponent {
     this.rejectingId.set(null);
   }
 
-  branchSchedule(branch: ActivityBranch): string {
-    if (branch.slots?.length) return formatSlots(branch.slots);
-    return `${branch.days.join(', ')} · ${branch.timeFrom}–${branch.timeTo}`;
-  }
-
-  /** У активности нет серверного поля `price`, поэтому подпись цены собираю здесь. */
-  priceLabel(a: Activity): string {
-    if (a.priceType === 'free') return 'Бесплатно';
-    const amount = `${String(a.priceAmount).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₽ / мес`;
-    return a.priceType === 'pushkin' ? `${amount} · Пушкинская карта` : amount;
+  openCreateForm(): void {
+    this.showCreateForm.set(true);
   }
 
   confirmIncoming(ie: IncomingEnrollment): void {
@@ -792,80 +543,26 @@ export class PersonalDashboardComponent {
     });
   }
 
-  openCreateForm(): void {
-    this.activityErrors.set({});
-    this.activityFormError.set('');
-    this.showCreateForm.set(true);
-  }
-
-  toggleGroupDay(index: number, day: DayOfWeek): void {
-    this.updateGroup(index, g => ({
-      ...g,
-      days: g.days.includes(day) ? g.days.filter(d => d !== day) : [...g.days, day],
-    }));
-  }
-
-  setGroupTime(index: number, field: 'timeFrom' | 'timeTo', value: string): void {
-    this.updateGroup(index, g => (field === 'timeFrom' ? { ...g, timeFrom: value } : { ...g, timeTo: value }));
-  }
-
-  addSlotGroup(): void {
-    this.slotGroups.update(groups => [...groups, { ...EMPTY_SLOT_GROUP }]);
-  }
-
-  removeSlotGroup(index: number): void {
-    this.slotGroups.update(groups => groups.filter((_, i) => i !== index));
-  }
-
-  createActivity(): void {
-    if (this.creating()) return;
-    const payload = this.buildActivityPayload();
-    if (!payload) return;
-
-    this.creating.set(true);
-    this.activitiesService.create(payload).subscribe({
-      next: () => {
-        this.creating.set(false);
-        this.resetActivityForm();
-        this.showCreateForm.set(false);
-      },
-      error: (err: unknown) => {
-        this.creating.set(false);
-        this.applyActivityErrors(toApiError(err, 'Не удалось создать активность'));
-      },
-    });
-  }
-
   // ─── Дети ──────────────────────────────────────────────────────────────────
 
-  addChild(): void {
-    if (this.addingChild()) return;
-    const firstName = this.childFirstName().trim();
-    const lastName = this.childLastName().trim();
-    const age = this.childAge();
-    const errors: Record<string, string> = {};
-    if (!firstName) errors['firstName'] = 'Укажите имя';
-    if (!Number.isInteger(age) || age < 1 || age > 18) errors['age'] = 'Возраст — от 1 до 18 лет';
-    this.childErrors.set(errors);
-    this.childFormError.set('');
-    if (Object.keys(errors).length > 0) return;
+  /** «год / года / лет» по последнему числу. */
+  yearsLabel(n: number): string {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'год';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'года';
+    return 'лет';
+  }
 
-    const payload: CreateChildPayload = { firstName, age, gender: this.childGender() };
-    if (lastName) payload.lastName = lastName;
+  editChild(id: string): void {
+    this.clearItemError(id);
+    this.editingChildId.set(id);
+  }
 
-    this.addingChild.set(true);
-    this.childrenService.create(payload).subscribe({
-      next: () => {
-        this.addingChild.set(false);
-        this.childFirstName.set(''); this.childLastName.set(''); this.childAge.set(0);
-      },
-      error: (err: unknown) => {
-        this.addingChild.set(false);
-        const apiError = toApiError(err, 'Не удалось добавить ребёнка');
-        this.childErrors.set(apiError.fieldErrors);
-        this.childFormError.set(formErrorMessage(apiError, CHILD_FIELDS));
-      },
-    });
+  onChildSaved(child: Child): void {
+    this.editingChildId.set(null);
+    // копии ребёнка в заявках (`forChild`) — чтобы список записей показывал новое имя
+    this.enrollmentsService.replaceChild(child);
   }
 
   removeChild(id: string): void {
@@ -884,6 +581,10 @@ export class PersonalDashboardComponent {
 
   private startItem(id: string): void {
     this.busyId.set(id);
+    this.clearItemError(id);
+  }
+
+  private clearItemError(id: string): void {
     this.itemErrors.update(errors => {
       const rest = { ...errors };
       delete rest[id];
@@ -906,85 +607,5 @@ export class PersonalDashboardComponent {
     } else {
       this.failItem(id, apiError.message);
     }
-  }
-
-  private updateGroup(index: number, fn: (g: SlotGroup) => SlotGroup): void {
-    this.slotGroups.update(groups => groups.map((g, i) => (i === index ? fn(g) : g)));
-  }
-
-  /** Клиентская валидация по контракту; при ошибках возвращает `null` и показывает их в форме. */
-  private buildActivityPayload(): CreateActivityPayload | null {
-    const errors: Record<string, string> = {};
-    const name = this.newName().trim();
-    const category = this.newCategory();
-    const ageMin = toInt(this.newAgeMin());
-    const ageMax = toInt(this.newAgeMax());
-    const priceType = this.newPriceType();
-    const priceAmount = priceType === 'free' ? 0 : toInt(this.newPriceAmount());
-    const address = this.branchAddress().trim();
-
-    if (name.length < 2 || name.length > 100) errors['name'] = 'Название — от 2 до 100 символов';
-    if (!category) errors['category'] = 'Выберите категорию';
-    if (ageMin === null || ageMin > 99) errors['ageMin'] = 'Укажите возраст от 0 до 99';
-    if (ageMax === null || ageMax > 99) errors['ageMax'] = 'Укажите возраст от 0 до 99';
-    else if (ageMin !== null && ageMin > ageMax) errors['ageMax'] = 'Не меньше, чем «возраст от»';
-    if (priceAmount === null) errors['priceAmount'] = 'Укажите сумму в рублях';
-    if (!address) errors['branches[0].address'] = 'Укажите адрес';
-
-    const groups = this.slotGroups().filter(g => g.days.length > 0);
-    if (groups.length === 0) errors[SLOTS_KEY] = 'Выберите хотя бы один день занятий';
-    else if (groups.some(g => !g.timeFrom || !g.timeTo || g.timeFrom >= g.timeTo)) {
-      errors[SLOTS_KEY] = 'Время начала должно быть раньше окончания';
-    }
-
-    this.activityErrors.set(errors);
-    this.activityFormError.set('');
-    if (Object.keys(errors).length > 0) return null;
-
-    const slots: ScheduleSlot[] = groups.flatMap(g =>
-      [...g.days]
-        .sort((a, b) => WEEK_DAYS.indexOf(a) - WEEK_DAYS.indexOf(b))
-        .map(day => ({ day, timeFrom: g.timeFrom, timeTo: g.timeTo })),
-    );
-    const tags = [...new Set(this.newTags().split(',').map(t => t.trim()).filter(Boolean))];
-
-    return {
-      name,
-      category: category as ClubCategory,
-      emoji: this.newEmoji().trim() || '🎯',
-      description: this.newDescription().trim(),
-      ageMin,
-      ageMax,
-      visitType: this.newVisitType(),
-      priceType,
-      priceAmount,
-      tags,
-      branches: [{
-        name: this.branchName().trim() || 'Основной',
-        address,
-        phone: this.branchPhone().trim(),
-        slots,
-      }],
-    };
-  }
-
-  private applyActivityErrors(apiError: ApiError): void {
-    const fieldErrors = { ...apiError.fieldErrors };
-    const slotViolations = apiError.violations.filter(v => v.propertyPath.startsWith(SLOTS_KEY));
-    if (slotViolations.length > 0) fieldErrors[SLOTS_KEY] = slotViolations[0].message;
-    this.activityErrors.set(fieldErrors);
-    this.activityFormError.set(formErrorMessage(apiError, [
-      ...ACTIVITY_FIELDS, ...slotViolations.map(v => v.propertyPath),
-    ]));
-  }
-
-  private resetActivityForm(): void {
-    this.newName.set(''); this.newCategory.set(''); this.newEmoji.set(''); this.newDescription.set('');
-    this.newAgeMin.set(''); this.newAgeMax.set(''); this.newVisitType.set('recurring');
-    this.newPriceType.set('free'); this.newPriceAmount.set(''); this.newTags.set('');
-    this.branchName.set('Основной'); this.branchAddress.set(''); this.branchPhone.set('');
-    this.slotGroups.set([{ ...EMPTY_SLOT_GROUP }]);
-    this.activityErrors.set({});
-    this.activityFormError.set('');
   }
 }
