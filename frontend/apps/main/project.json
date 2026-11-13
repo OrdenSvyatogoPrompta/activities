@@ -1,0 +1,81 @@
+{
+  "name": "main",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/main/src",
+  "prefix": "act",
+  "generators": {
+    "@schematics/angular:component": {
+      "style": "scss"
+    }
+  },
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "outputs": ["{options.outputPath.base}"],
+      "options": {
+        "outputPath": {
+          "base": "../public",
+          "browser": ""
+        },
+        "baseHref": "/",
+        "index": "apps/main/src/index.html",
+        "browser": "apps/main/src/main.ts",
+        "polyfills": ["apps/main/src/polyfills.ts"],
+        "tsConfig": "apps/main/tsconfig.app.json",
+        "assets": [
+          "apps/main/src/favicon.ico",
+          {
+            "glob": "**/*",
+            "input": "apps/main/src/assets",
+            "output": "/assets"
+          }
+        ],
+        "styles": ["apps/main/src/styles/styles.scss"],
+        "scripts": []
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all",
+          "fileReplacements": [
+            {
+              "replace": "apps/main/src/environments/environment.ts",
+              "with": "apps/main/src/environments/environment.prod.ts"
+            }
+          ]
+        },
+        "development": {
+          "optimization": false,
+          "sourceMap": true,
+          "extractLicenses": false,
+          "namedChunks": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "configurations": {
+        "production": {
+          "buildTarget": "main:build:production"
+        },
+        "development": {
+          "buildTarget": "main:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    }
+  }
+}

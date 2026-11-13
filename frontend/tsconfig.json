@@ -1,0 +1,33 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "baseUrl": ".",
+    "declaration": true,
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "incremental": true,
+    "lib": ["es2018", "es2020", "dom"],
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "paths": {
+      "~/*": ["${configDir}/src/app/*"]
+    },
+    "rootDir": ".",
+    "sourceMap": true,
+    "strictNullChecks": false,
+    "target": "es2022",
+    "typeRoots": ["node_modules/@types"],
+    "useDefineForClassFields": false
+  },
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  },
+  "exclude": ["node_modules", "tmp"],
+  "references": [
+    {
+      "path": "./apps/main"
+    }
+  ]
+}
