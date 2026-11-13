@@ -9,34 +9,17 @@ use App\Entity\Child;
 use App\Entity\Enrollment;
 use App\Entity\Enum\EnrollmentStatus;
 use App\Repository\ChildRepository;
-use App\Repository\ClubRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\Functional\ApiTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Группа E — дети: `GET/POST /api/me/children`, `PATCH/DELETE /api/me/children/{id}`.
- *
- * Требует тестовую базу с фикстурами (`make test-db`); изменения откатывает dama/doctrine-test-bundle.
  * У Марии (фикстуры) двое детей: Артём (подтверждённая заявка) и Соня (заявка на рассмотрении).
  */
-final class ChildrenApiTest extends WebTestCase
+final class ChildrenApiTest extends ApiTestCase
 {
-    use AuthenticatesWithJwt;
-
     private const string URL = '/api/me/children';
     private const string OTHER_PARENT_EMAIL = 'anna.petrova@example.com';
-
-    private KernelBrowser $client;
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-    }
-
-    // ── 401 ─────────────────────────────────────────────────────────────
 
     /**
      * @return iterable<string, array{string, string}>
@@ -61,11 +44,9 @@ final class ChildrenApiTest extends WebTestCase
         self::assertSame('Требуется вход: access-токен не передан', $problem['detail']);
     }
 
-    // ── GET ─────────────────────────────────────────────────────────────
-
     public function testListReturnsOwnChildrenInCreationOrder(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->client->request('GET', self::URL);
 
@@ -82,7 +63,7 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testListDoesNotIncludeOtherUsersChildren(): void
     {
-        self::loginAs($this->client, self::OTHER_PARENT_EMAIL);
+        $this->loginAs(self::OTHER_PARENT_EMAIL);
 
         $this->client->request('GET', self::URL);
 
@@ -92,7 +73,7 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testListIsEmptyForUserWithoutChildren(): void
     {
-        self::loginAs($this->client, AppFixtures::ADMIN_EMAIL);
+        $this->loginAs(AppFixtures::ADMIN_EMAIL);
 
         $this->client->request('GET', self::URL);
 
@@ -100,11 +81,9 @@ final class ChildrenApiTest extends WebTestCase
         self::assertSame([], $this->json());
     }
 
-    // ── POST ────────────────────────────────────────────────────────────
-
     public function testCreateReturns201AndChildAppearsInList(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => '  Лиза ', 'lastName' => 'Иванова', 'age' => 3, 'gender' => 'female']);
 
@@ -124,7 +103,7 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testCreateWithoutLastNameStoresNull(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Петя', 'lastName' => '  ', 'age' => 18, 'gender' => 'male']);
 
@@ -156,7 +135,7 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('invalidCreatePayloads')]
     public function testCreateValidation(array $payload, string $field, string $message): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, $payload);
 
@@ -167,7 +146,7 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testCreateWithAgeOfWrongTypeReturns422(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Петя', 'age' => 'восемь', 'gender' => 'male']);
 
@@ -177,19 +156,17 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testCreateWithMalformedJsonReturns400(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->client->request('POST', self::URL, server: ['CONTENT_TYPE' => 'application/json'], content: '{"firstName":');
 
         $this->assertProblem(400);
     }
 
-    // ── PATCH ───────────────────────────────────────────────────────────
-
     public function testPatchUpdatesOnlyPassedFields(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $artem = $this->childOf(AppFixtures::DEMO_EMAIL, 'Артём');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, ['age' => 9]);
 
@@ -202,8 +179,8 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testPatchUpdatesAllFieldsAndPersists(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $sonya = $this->childOf(AppFixtures::DEMO_EMAIL, 'Соня');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $sonya = $this->child(AppFixtures::DEMO_EMAIL, 'Соня')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$sonya, ['firstName' => 'Софья', 'lastName' => 'Петрова', 'age' => 6, 'gender' => 'female']);
         self::assertResponseStatusCodeSame(200);
@@ -218,8 +195,8 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testPatchWithNullLastNameClearsIt(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $artem = $this->childOf(AppFixtures::DEMO_EMAIL, 'Артём');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, ['lastName' => null]);
 
@@ -230,8 +207,8 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testPatchWithEmptyBodyChangesNothing(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $artem = $this->childOf(AppFixtures::DEMO_EMAIL, 'Артём');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, []);
 
@@ -259,16 +236,14 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('invalidPatchPayloads')]
     public function testPatchValidation(array $payload, string $field, string $message): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $artem = $this->childOf(AppFixtures::DEMO_EMAIL, 'Артём');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, $payload);
 
         $problem = $this->assertProblem(422);
         self::assertContains(['propertyPath' => $field, 'message' => $message], $problem['violations']);
     }
-
-    // ── 404: чужой / несуществующий / некорректный id ───────────────────
 
     /**
      * @return iterable<string, array{string}>
@@ -282,8 +257,8 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('writeMethods')]
     public function testOtherUsersChildReturns404(string $method): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $foreign = $this->childOf(self::OTHER_PARENT_EMAIL, 'Маша');
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $foreign = $this->child(self::OTHER_PARENT_EMAIL, 'Маша')->getId()->toRfc4122();
 
         $this->jsonRequest($method, self::URL.'/'.$foreign, ['firstName' => 'Взлом']);
 
@@ -298,7 +273,7 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('writeMethods')]
     public function testUnknownIdReturns404(string $method): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest($method, self::URL.'/0190a8e2-7c3b-7d4e-8f5a-1b2c3d4e5f60', ['age' => 5]);
 
@@ -309,7 +284,7 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('writeMethods')]
     public function testMalformedIdReturns404(string $method): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
 
         $this->jsonRequest($method, self::URL.'/not-a-uuid', ['age' => 5]);
 
@@ -317,11 +292,9 @@ final class ChildrenApiTest extends WebTestCase
         self::assertSame('Ребёнок не найден', $problem['detail']);
     }
 
-    // ── DELETE ──────────────────────────────────────────────────────────
-
     public function testDeleteChildWithoutEnrollmentsReturns204(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Лиза', 'age' => 3, 'gender' => 'female']);
         $id = $this->json()['id'];
 
@@ -344,8 +317,8 @@ final class ChildrenApiTest extends WebTestCase
     #[DataProvider('childrenWithActiveEnrollments')]
     public function testDeleteChildWithActiveEnrollmentReturns409(string $firstName): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
-        $id = $this->childOf(AppFixtures::DEMO_EMAIL, $firstName);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $id = $this->child(AppFixtures::DEMO_EMAIL, $firstName)->getId()->toRfc4122();
 
         $this->client->request('DELETE', self::URL.'/'.$id);
 
@@ -356,14 +329,14 @@ final class ChildrenApiTest extends WebTestCase
 
     public function testDeleteChildWithOnlyFinishedEnrollmentsReturns204(): void
     {
-        self::loginAs($this->client, AppFixtures::DEMO_EMAIL);
+        $this->loginAs(AppFixtures::DEMO_EMAIL);
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Лиза', 'age' => 3, 'gender' => 'female']);
         $id = $this->json()['id'];
 
         // Отменённая заявка не мешает удалению (статус ставится напрямую, как в фикстурах)
-        $em = self::getContainer()->get(EntityManagerInterface::class);
-        $club = self::getContainer()->get(ClubRepository::class)->findOnePublishedBySlug('gimnastika-voskhod');
-        $enrollment = new Enrollment(self::findUser(AppFixtures::DEMO_EMAIL), $club, $club->getSingleBranch(), $this->childEntity($id));
+        $em = $this->entityManager();
+        $club = $this->club('gimnastika-voskhod');
+        $enrollment = new Enrollment($this->user(AppFixtures::DEMO_EMAIL), $club, $club->getSingleBranch(), $this->childEntity($id));
         $enrollment->setMarking(EnrollmentStatus::Cancelled->value);
         $em->persist($enrollment);
         $em->flush();
@@ -372,36 +345,6 @@ final class ChildrenApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(204);
         $this->assertChildrenCount(AppFixtures::DEMO_EMAIL, 2);
-    }
-
-    // ── helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * @param array<string, mixed> $payload
-     */
-    private function jsonRequest(string $method, string $url, array $payload): void
-    {
-        $this->client->request(
-            $method,
-            $url,
-            server: ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
-            // Пустой массив — пустой объект `{}`, а не `[]`
-            content: [] === $payload ? '{}' : json_encode($payload, \JSON_THROW_ON_ERROR),
-        );
-    }
-
-    /**
-     * Id ребёнка пользователя по имени (из базы, без API).
-     */
-    private function childOf(string $email, string $firstName): string
-    {
-        foreach (self::getContainer()->get(ChildRepository::class)->findByParent(self::findUser($email)) as $child) {
-            if ($child->getFirstName() === $firstName) {
-                return $child->getId()->toRfc4122();
-            }
-        }
-
-        self::fail(\sprintf('У %s нет ребёнка «%s» в фикстурах', $email, $firstName));
     }
 
     private function childEntity(string $id): Child
@@ -414,29 +357,6 @@ final class ChildrenApiTest extends WebTestCase
 
     private function assertChildrenCount(string $email, int $expected): void
     {
-        self::assertSame($expected, self::getContainer()->get(ChildRepository::class)->countByParent(self::findUser($email)));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function assertProblem(int $status): array
-    {
-        self::assertResponseStatusCodeSame($status);
-        self::assertResponseHeaderSame('Content-Type', 'application/problem+json');
-
-        $problem = $this->json();
-        self::assertSame('about:blank', $problem['type']);
-        self::assertSame($status, $problem['status']);
-
-        return $problem;
-    }
-
-    /**
-     * @return array<int|string, mixed>
-     */
-    private function json(): array
-    {
-        return json_decode((string) $this->client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertSame($expected, self::getContainer()->get(ChildRepository::class)->countByParent($this->user($email)));
     }
 }
