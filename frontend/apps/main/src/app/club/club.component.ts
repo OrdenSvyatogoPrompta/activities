@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signa
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { LoadStatus } from '../api/api-client';
 import { formErrorMessage, toApiError } from '../api/api-error';
 import { Branch, Club, ClubCategory } from '../models/club.model';
 import { CreateEnrollmentPayload, isActiveEnrollment } from '../models/enrollment.model';
@@ -12,9 +11,10 @@ import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { ClubsService } from '../services/clubs.service';
 import { EnrollmentsService } from '../services/enrollments.service';
+import { LoadStatus } from '../services/remote-list';
 import { getIllustration } from '../utils/illustrations';
 
-/** Ключ участника «для себя» (у ребёнка ключ — его id). */
+/** Ключ участника «для себя»; у ребёнка ключ — его id. */
 const SELF = '__self__';
 
 type ClubLoadState = LoadStatus | 'notFound';
@@ -138,7 +138,6 @@ type ClubLoadState = LoadStatus | 'notFound';
         </main>
       </div>
 
-      <!-- Bottom sheet записи -->
       @if (enrollmentOpen()) {
         <div class="sheet-backdrop" (click)="closeEnrollment()"></div>
         <div class="sheet">
@@ -163,7 +162,7 @@ type ClubLoadState = LoadStatus | 'notFound';
             <div class="sheet__chips">
               <button class="s-chip" [class.s-chip--active]="forChild() === null"
                 (click)="selectParticipant(null)">Для себя{{ isEnrolled(null) ? ' ✓' : '' }}</button>
-              @for (child of childrenService.children(); track child.id) {
+              @for (child of children.items(); track child.id) {
                 <button class="s-chip" [class.s-chip--active]="forChild()?.id === child.id"
                   (click)="selectParticipant(child)">
                   {{ child.firstName }}, {{ child.age }} л.{{ isEnrolled(child) ? ' ✓' : '' }}
@@ -185,7 +184,6 @@ type ClubLoadState = LoadStatus | 'notFound';
           </button>
         </div>
       }
-      <!-- Модалка: заявка отправлена -->
       @if (enrollmentDone()) {
         <div class="modal-backdrop" (click)="enrollmentDone.set(false)">
           <div class="modal" (click)="$event.stopPropagation()">
@@ -227,7 +225,7 @@ export class ClubComponent {
   private readonly enrollments  = inject(EnrollmentsService);
 
   readonly authService     = inject(AuthService);
-  readonly childrenService = inject(ChildrenService);
+  readonly children        = inject(ChildrenService).list;
   readonly categoryBadge   = CATEGORY_BADGE;
 
   readonly club      = signal<Club | null>(null);
@@ -246,14 +244,12 @@ export class ClubComponent {
     this.activeBranch() ?? this.club()?.branches[0] ?? null,
   );
 
-  /** Активные (`pending|confirmed`) заявки в этот кружок. */
   private readonly activeEnrollments = computed(() => {
     const c = this.club();
     if (!c) return [];
-    return this.enrollments.mine().filter(e => e.clubId === c.id && isActiveEnrollment(e));
+    return this.enrollments.list.items().filter(e => e.clubId === c.id && isActiveEnrollment(e));
   });
 
-  /** Ключи участников, у которых уже есть активная заявка. */
   private readonly enrolledKeys = computed(() =>
     new Set(this.activeEnrollments().map(e => e.forChild?.id ?? SELF)),
   );
@@ -262,11 +258,10 @@ export class ClubComponent {
     ...new Set(this.activeEnrollments().map(e => e.forChild ? e.forChild.firstName : 'для себя')),
   ]);
 
-  /** Все участники (сам пользователь и каждый ребёнок) уже подали заявку. */
   readonly allEnrolled = computed(() => {
     if (!this.authService.user()) return false;
     const keys = this.enrolledKeys();
-    return keys.has(SELF) && this.childrenService.children().every(c => keys.has(c.id));
+    return keys.has(SELF) && this.children.items().every(c => keys.has(c.id));
   });
 
   readonly selectedEnrolled = computed(() => this.enrolledKeys().has(this.forChild()?.id ?? SELF));
@@ -274,8 +269,8 @@ export class ClubComponent {
   constructor() {
     this.loadClub();
     if (this.authService.user()) {
-      this.enrollments.loadMine();
-      this.childrenService.load();
+      this.enrollments.list.load();
+      this.children.load();
     }
   }
 
@@ -317,8 +312,7 @@ export class ClubComponent {
     }
     const club = this.club();
     this.selectedBranch.set(this.activeBranch() ?? club?.branches[0] ?? null);
-    // по умолчанию — первый участник без активной заявки
-    const free = this.childrenService.children().find(c => !this.isEnrolled(c));
+    const free = this.children.items().find(c => !this.isEnrolled(c));
     this.forChild.set(this.isEnrolled(null) && free ? free : null);
     this.enrollError.set('');
     this.enrollmentOpen.set(true);
@@ -349,7 +343,7 @@ export class ClubComponent {
         const apiError = toApiError(err, 'Не удалось отправить заявку');
         if (apiError.status === 409) {
           this.enrollError.set('У этого участника уже есть активная заявка в этот кружок');
-          this.enrollments.loadMine(true);
+          this.enrollments.list.load(true);
         } else if (apiError.status === 404) {
           this.enrollError.set('Кружок больше недоступен для записи');
         } else {

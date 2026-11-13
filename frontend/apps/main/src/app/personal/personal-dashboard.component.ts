@@ -4,16 +4,17 @@ import { Router, RouterLink } from '@angular/router';
 
 import { toApiError } from '../api/api-error';
 import { ACTIVITY_STATUS_LABEL, Activity, IncomingEnrollment } from '../models/activity.model';
-import { DayOfWeek } from '../models/club.model';
+import { DayOfWeek, VISIT_TYPE_LABEL, WEEK_DAYS } from '../models/club.model';
 import { ENROLLMENT_STATUS_LABEL, Enrollment, isActiveEnrollment } from '../models/enrollment.model';
 import { Child } from '../models/user.model';
 import { ActivitiesService } from '../services/activities.service';
 import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { EnrollmentsService } from '../services/enrollments.service';
+import { RemoteList } from '../services/remote-list';
+import { yearsLabel } from '../utils/format';
 import { ActivityFormComponent } from './activity-form.component';
 import { ChildFormComponent } from './child-form.component';
-import { VISIT_TYPE_LABEL, WEEK_DAYS } from './personal.constants';
 import { ProfileNameComponent } from './profile-name.component';
 
 type Tab = 'enrollments' | 'activities' | 'children';
@@ -24,12 +25,12 @@ interface CalendarDot {
   pending: boolean;
 }
 
-/** Входящие заявки активности: по филиалам активности (`activityBranchId`) и «прочие». */
 interface IncomingByBranch {
   byBranch: Record<string, IncomingEnrollment[]>;
   other: IncomingEnrollment[];
 }
 
+/** Индекс — `Date.getDay()`. */
 const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 @Component({
@@ -43,7 +44,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
         <a class="header__logo" routerLink="/">Заодно</a>
         <div class="header__actions">
           @if (isAdmin()) {
-            <a class="header__admin" routerLink="/admin">Модерация</a>
+            <a class="header__link" routerLink="/admin">Модерация</a>
           }
           <button class="header__logout" (click)="logout()">Выйти</button>
         </div>
@@ -87,14 +88,13 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 
       <div class="content">
 
-        <!-- ── Мои записи ── -->
         @if (tab() === 'enrollments') {
-          @if (enrollmentsService.status() === 'loading' && enrollments().length === 0) {
+          @if (enrollments.status() === 'loading' && enrollments.items().length === 0) {
             <div class="state"><div class="spinner"></div></div>
-          } @else if (enrollmentsService.status() === 'error') {
+          } @else if (enrollments.status() === 'error') {
             <div class="state">
-              <span>{{ enrollmentsService.error() }}</span>
-              <button class="state__retry" (click)="enrollmentsService.loadMine(true)">Повторить</button>
+              <span>{{ enrollments.error() }}</span>
+              <button class="state__retry" (click)="enrollments.load(true)">Повторить</button>
             </div>
           } @else {
             <div class="view-toggle">
@@ -123,13 +123,13 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                   }
                 </div>
                 <div class="cal__legend">
-                  @for (e of calendarEnrollments(); track e.id) {
+                  @for (e of activeEnrollments(); track e.id) {
                     <div class="cal__legend-item">
                       <span class="cal__dot" [class.cal__dot--pending]="e.status === 'pending'" [style.background]="e.color"></span>
                       <span>{{ e.clubName }}{{ e.status === 'pending' ? ' · на рассмотрении' : '' }}</span>
                     </div>
                   }
-                  @if (calendarEnrollments().length === 0) {
+                  @if (activeEnrollments().length === 0) {
                     <p class="ie-empty">Подтверждённых записей пока нет</p>
                   }
                 </div>
@@ -137,11 +137,11 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
             }
 
             @if (enrollView() === 'list') {
-              @if (children().length > 0) {
+              @if (children.items().length > 0) {
                 <div class="child-filter">
                   <button class="filter-pill" [class.filter-pill--active]="childFilter() === null" (click)="childFilter.set(null)">Все</button>
                   <button class="filter-pill" [class.filter-pill--active]="childFilter() === 'self'" (click)="childFilter.set('self')">Я</button>
-                  @for (child of children(); track child.id) {
+                  @for (child of children.items(); track child.id) {
                     <button class="filter-pill" [class.filter-pill--active]="childFilter() === child.id" (click)="childFilter.set(child.id)">{{ child.firstName }}</button>
                   }
                 </div>
@@ -185,10 +185,8 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
           }
         }
 
-        <!-- ── Активности ── -->
         @if (tab() === 'activities') {
 
-          <!-- Детальный просмотр активности -->
           @if (selectedActivity(); as act) {
             <button class="back-btn" (click)="selectActivity(null)">← Все активности</button>
 
@@ -265,13 +263,13 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                       <div class="ie-actions">
                         <input class="ie-actions__input" type="text" placeholder="Причина отказа (необязательно)" maxlength="500"
                           [value]="rejectReason()" (input)="rejectReason.set($any($event.target).value)" />
-                        <button class="ie-btn ie-btn--danger" [disabled]="busyId() === ie.id" (click)="submitReject(ie)">Отклонить</button>
-                        <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="rejectingId.set(null)">Отмена</button>
+                        <button class="btn-small btn-small--danger" [disabled]="busyId() === ie.id" (click)="submitReject(ie)">Отклонить</button>
+                        <button class="btn-small" [disabled]="busyId() === ie.id" (click)="rejectingId.set(null)">Отмена</button>
                       </div>
                     } @else {
                       <div class="ie-actions">
-                        <button class="ie-btn ie-btn--ok" [disabled]="busyId() === ie.id" (click)="confirmIncoming(ie)">Подтвердить</button>
-                        <button class="ie-btn" [disabled]="busyId() === ie.id" (click)="startReject(ie)">Отклонить</button>
+                        <button class="btn-small btn-small--ok" [disabled]="busyId() === ie.id" (click)="confirmIncoming(ie)">Подтвердить</button>
+                        <button class="btn-small" [disabled]="busyId() === ie.id" (click)="startReject(ie)">Отклонить</button>
                       </div>
                     }
                   }
@@ -283,20 +281,19 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
             </ng-template>
           }
 
-          <!-- Список активностей / форма создания -->
           @if (!selectedActivity()) {
             @if (showCreateForm()) {
               <act-activity-form (created)="showCreateForm.set(false)" (cancelled)="showCreateForm.set(false)" />
             } @else {
-              @if (activitiesService.status() === 'loading' && activities().length === 0) {
+              @if (activities.status() === 'loading' && activities.items().length === 0) {
                 <div class="state"><div class="spinner"></div></div>
-              } @else if (activitiesService.status() === 'error') {
+              } @else if (activities.status() === 'error') {
                 <div class="state">
-                  <span>{{ activitiesService.error() }}</span>
-                  <button class="state__retry" (click)="activitiesService.loadMine(true)">Повторить</button>
+                  <span>{{ activities.error() }}</span>
+                  <button class="state__retry" (click)="activities.load(true)">Повторить</button>
                 </div>
               } @else {
-                @for (a of activities(); track a.id) {
+                @for (a of activities.items(); track a.id) {
                   <div class="activity-card" (click)="selectActivity(a)">
                     <div class="activity-card__icon">{{ a.emoji }}</div>
                     <div>
@@ -314,31 +311,30 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
                     </svg>
                   </div>
                 }
-                @if (activities().length === 0) {
+                @if (activities.items().length === 0) {
                   <div class="empty">
                     <div class="empty__icon">🎯</div>
                     <div class="empty__title">Нет активностей</div>
                     <div class="empty__sub">Создайте свою секцию или кружок</div>
                   </div>
                 }
-                <button class="btn-create" (click)="openCreateForm()">+ Создать активность</button>
+                <button class="btn-create" (click)="showCreateForm.set(true)">+ Создать активность</button>
               }
             }
           }
         }
 
-        <!-- ── Дети ── -->
         @if (tab() === 'children') {
-          @if (childrenService.status() === 'loading' && children().length === 0) {
+          @if (children.status() === 'loading' && children.items().length === 0) {
             <div class="state"><div class="spinner"></div></div>
-          } @else if (childrenService.status() === 'error') {
+          } @else if (children.status() === 'error') {
             <div class="state">
-              <span>{{ childrenService.error() }}</span>
-              <button class="state__retry" (click)="childrenService.load(true)">Повторить</button>
+              <span>{{ children.error() }}</span>
+              <button class="state__retry" (click)="children.load(true)">Повторить</button>
             </div>
           }
 
-          @for (child of children(); track child.id) {
+          @for (child of children.items(); track child.id) {
             @if (editingChildId() === child.id) {
               <act-child-form [child]="child" (saved)="onChildSaved($event)" (cancelled)="editingChildId.set(null)" />
             } @else {
@@ -368,64 +364,58 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 export class PersonalDashboardComponent {
   private readonly authService = inject(AuthService);
   private readonly router      = inject(Router);
-
-  readonly enrollmentsService = inject(EnrollmentsService);
-  readonly childrenService    = inject(ChildrenService);
-  readonly activitiesService  = inject(ActivitiesService);
+  private readonly enrollmentsService = inject(EnrollmentsService);
+  private readonly childrenService    = inject(ChildrenService);
+  private readonly activitiesService  = inject(ActivitiesService);
 
   readonly user        = this.authService.user;
-  readonly enrollments = this.enrollmentsService.mine;
-  readonly children    = this.childrenService.children;
-  readonly activities  = this.activitiesService.mine;
-
-  readonly isAdmin = computed(() => this.user()?.roles?.includes('ROLE_ADMIN') ?? false);
+  readonly isAdmin     = this.authService.isAdmin;
+  readonly enrollments = this.enrollmentsService.list;
+  readonly children    = this.childrenService.list;
+  readonly activities  = this.activitiesService.list;
 
   readonly tab         = signal<Tab>('enrollments');
   readonly enrollView  = signal<EnrollView>('list');
   readonly childFilter = signal<string | null>(null);
   readonly selectedActivityId = signal<string | null>(null);
   readonly showCreateForm = signal(false);
-  /** Ребёнок, открытый на inline-редактирование. */
   readonly editingChildId = signal<string | null>(null);
 
   readonly weekDays = WEEK_DAYS;
   readonly visitTypeLabel = VISIT_TYPE_LABEL;
   readonly enrollmentStatusLabel = ENROLLMENT_STATUS_LABEL;
   readonly activityStatusLabel   = ACTIVITY_STATUS_LABEL;
+  readonly yearsLabel = yearsLabel;
+  readonly canCancel  = isActiveEnrollment;
   readonly today    = new Date().getDate();
 
-  /** id элемента (заявки, входящей заявки, ребёнка), по которому идёт запрос. */
+  /** id заявки или ребёнка, по которому идёт запрос. */
   readonly busyId     = signal<string | null>(null);
-  /** Ошибки действий над конкретными элементами, по id. */
   readonly itemErrors = signal<Record<string, string>>({});
 
-  // отклонение входящей заявки
   readonly rejectingId  = signal<string | null>(null);
   readonly rejectReason = signal('');
 
-  /** Счётчики: по загруженным спискам, пока их нет — из `user.stats` (`GET /api/me`). */
+  /** Пока списки не загружены — счётчики из `user.stats`. */
   readonly stats = computed(() => {
     const s = this.user()?.stats;
+    const loaded = (list: RemoteList<unknown>) => list.status() === 'loaded';
     return {
-      enrollments: this.enrollmentsService.status() === 'loaded'
-        ? this.enrollments().filter(isActiveEnrollment).length : s?.enrollments ?? 0,
-      activities: this.activitiesService.status() === 'loaded' ? this.activities().length : s?.activities ?? 0,
-      children: this.childrenService.status() === 'loaded' ? this.children().length : s?.children ?? 0,
+      enrollments: loaded(this.enrollments) ? this.activeEnrollments().length : s?.enrollments ?? 0,
+      activities: loaded(this.activities) ? this.activities.items().length : s?.activities ?? 0,
+      children: loaded(this.children) ? this.children.items().length : s?.children ?? 0,
     };
   });
 
   readonly filteredEnrollments = computed(() => {
-    const list = this.enrollments();
+    const list = this.enrollments.items();
     const f = this.childFilter();
     if (f === null) return list;
     if (f === 'self') return list.filter(e => !e.forChild);
     return list.filter(e => e.forChild?.id === f);
   });
 
-  /** В календаре — подтверждённые записи; заявки на рассмотрении показываются бледнее. */
-  readonly calendarEnrollments = computed(() =>
-    this.enrollments().filter(e => e.status === 'confirmed' || e.status === 'pending'),
-  );
+  readonly activeEnrollments = computed(() => this.enrollments.items().filter(isActiveEnrollment));
 
   readonly calendarDays = computed(() => {
     const now = new Date();
@@ -434,7 +424,7 @@ export class PersonalDashboardComponent {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startOffset = (firstDay.getDay() + 6) % 7;
-    const enrollments = this.calendarEnrollments();
+    const enrollments = this.activeEnrollments();
     const days: Array<{ date: number | null; dots: CalendarDot[] }> = [];
     for (let i = 0; i < startOffset; i++) days.push({ date: null, dots: [] });
     for (let d = 1; d <= lastDay.getDate(); d++) {
@@ -449,13 +439,10 @@ export class PersonalDashboardComponent {
 
   readonly selectedActivity = computed(() => {
     const id = this.selectedActivityId();
-    return id ? this.activities().find(a => a.id === id) ?? null : null;
+    return id ? this.activities.items().find(a => a.id === id) ?? null : null;
   });
 
-  /**
-   * Входящие заявки выбранной активности по её филиалам (`activityBranchId`).
-   * Заявки без филиала или с филиалом, которого нет среди филиалов активности, — в «прочих».
-   */
+  /** Заявки с неизвестным филиалом активности попадают в «прочие». */
   readonly incoming = computed<IncomingByBranch>(() => {
     const result: IncomingByBranch = { byBranch: {}, other: [] };
     const act = this.selectedActivity();
@@ -472,22 +459,16 @@ export class PersonalDashboardComponent {
   });
 
   constructor() {
-    // свежие данные при каждом входе в ЛК: статусы заявок меняются на стороне организатора
+    // статусы заявок меняет организатор — перезагружаем при каждом входе
     this.authService.reloadUser().catch(() => undefined);
-    this.enrollmentsService.loadMine(true);
-    this.childrenService.load(true);
-    this.activitiesService.loadMine(true);
+    this.enrollments.load(true);
+    this.children.load(true);
+    this.activities.load(true);
   }
 
   async logout(): Promise<void> {
     await this.authService.logout();
     await this.router.navigate(['/']);
-  }
-
-  // ─── Записи ────────────────────────────────────────────────────────────────
-
-  canCancel(e: Enrollment): boolean {
-    return isActiveEnrollment(e);
   }
 
   cancelEnrollment(e: Enrollment): void {
@@ -499,7 +480,7 @@ export class PersonalDashboardComponent {
         const apiError = toApiError(err, 'Не удалось отменить запись');
         if (apiError.status === 409) {
           this.failItem(e.id, 'Эту заявку уже нельзя отменить');
-          this.enrollmentsService.loadMine(true);
+          this.enrollments.load(true);
         } else {
           this.failItem(e.id, apiError.message);
         }
@@ -507,15 +488,9 @@ export class PersonalDashboardComponent {
     });
   }
 
-  // ─── Активности ────────────────────────────────────────────────────────────
-
   selectActivity(a: Activity | null): void {
     this.selectedActivityId.set(a?.id ?? null);
     this.rejectingId.set(null);
-  }
-
-  openCreateForm(): void {
-    this.showCreateForm.set(true);
   }
 
   confirmIncoming(ie: IncomingEnrollment): void {
@@ -548,17 +523,6 @@ export class PersonalDashboardComponent {
     });
   }
 
-  // ─── Дети ──────────────────────────────────────────────────────────────────
-
-  /** «год / года / лет» по последнему числу. */
-  yearsLabel(n: number): string {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return 'год';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'года';
-    return 'лет';
-  }
-
   editChild(id: string): void {
     this.clearItemError(id);
     this.editingChildId.set(id);
@@ -566,7 +530,6 @@ export class PersonalDashboardComponent {
 
   onChildSaved(child: Child): void {
     this.editingChildId.set(null);
-    // копии ребёнка в заявках (`forChild`) — чтобы список записей показывал новое имя
     this.enrollmentsService.replaceChild(child);
   }
 
@@ -581,8 +544,6 @@ export class PersonalDashboardComponent {
       },
     });
   }
-
-  // ─── Вспомогательное ───────────────────────────────────────────────────────
 
   private startItem(id: string): void {
     this.busyId.set(id);
@@ -606,7 +567,7 @@ export class PersonalDashboardComponent {
     const apiError = toApiError(err, 'Не удалось изменить статус заявки');
     if (apiError.status === 409) {
       this.failItem(id, 'Статус заявки уже изменился');
-      this.activitiesService.loadMine(true);
+      this.activities.load(true);
     } else if (apiError.status === 403) {
       this.failItem(id, 'Нет прав на изменение этой заявки');
     } else {

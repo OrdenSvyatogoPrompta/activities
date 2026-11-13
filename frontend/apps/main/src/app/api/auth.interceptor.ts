@@ -6,17 +6,14 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../services/auth.service';
 
-/** Эндпоинты, которым не нужен access-токен и на которых 401 не лечится refresh-ем. */
+/** На этих путях 401 не лечится refresh-ем. */
 const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh'];
 
 function withToken<T>(req: HttpRequest<T>, token: string | null): HttpRequest<T> {
   return token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
 }
 
-/**
- * Подставляет `Authorization: Bearer`, на 401 один раз обновляет токен и повторяет запрос.
- * Если обновить не удалось — завершает сессию и уводит на `/auth/login`.
- */
+/** На 401 один раз обновляет токен и повторяет запрос, иначе — выход на страницу входа. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const apiUrl = environment.apiUrl;
   if (!req.url.startsWith(`${apiUrl}/`)) return next(req);

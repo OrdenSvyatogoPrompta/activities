@@ -5,7 +5,6 @@ import { AuthService } from '../services/auth.service';
 
 const MAX_NAME_LENGTH = 100;
 
-/** Имя пользователя в шапке ЛК с inline-редактированием (`PATCH /api/me`). */
 @Component({
   selector: 'act-profile-name',
   styleUrl: './profile-name.component.scss',
@@ -64,7 +63,7 @@ export class ProfileNameComponent {
     this.saving.set(true);
     this.error.set('');
     try {
-      await this.auth.updateProfile({ name });
+      await this.auth.updateName(name);
       this.editing.set(false);
     } catch (err) {
       const apiError = toApiError(err, 'Не удалось сохранить имя');

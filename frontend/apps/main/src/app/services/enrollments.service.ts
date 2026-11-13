@@ -1,79 +1,47 @@
-import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
-import { ApiClient, LoadStatus } from '../api/api-client';
-import { toApiError } from '../api/api-error';
+import { ApiClient } from '../api/api-client';
 import { CreateEnrollmentPayload, Enrollment } from '../models/enrollment.model';
 import { Child } from '../models/user.model';
 import { AuthService } from './auth.service';
+import { RemoteList } from './remote-list';
 
-/** Заявки текущего пользователя на запись в кружки. */
 @Injectable({ providedIn: 'root' })
 export class EnrollmentsService {
-  private readonly api  = inject(ApiClient);
-  private readonly auth = inject(AuthService);
+  private readonly api = inject(ApiClient);
 
-  /** `GET /api/me/enrollments` — все статусы, кроме `cancelled`. */
-  readonly mine   = signal<Enrollment[]>([]);
-  readonly status = signal<LoadStatus>('idle');
-  readonly error  = signal('');
+  /** Сервер не возвращает отменённые заявки. */
+  readonly list = new RemoteList(() => this.api.get<Enrollment[]>('/me/enrollments'), 'Не удалось загрузить записи');
 
   constructor() {
-    // при выходе из аккаунта сбрасываем данные прошлой сессии
-    effect(() => {
-      if (!this.auth.user()) untracked(() => this.reset());
-    });
+    const auth = inject(AuthService);
+    this.list.resetUnless(auth.user);
   }
 
-  loadMine(force = false): void {
-    const status = this.status();
-    if (status === 'loading' || (status === 'loaded' && !force)) return;
-    this.status.set('loading');
-    this.error.set('');
-    this.api.get<Enrollment[]>('/me/enrollments').subscribe({
-      next: list => {
-        this.mine.set(list);
-        this.status.set('loaded');
-      },
-      error: (err: unknown) => {
-        this.error.set(toApiError(err, 'Не удалось загрузить записи').message);
-        this.status.set('error');
-      },
-    });
-  }
-
-  /** `POST /api/enrollments` → заявка в статусе `pending`. */
   create(payload: CreateEnrollmentPayload): Observable<Enrollment> {
     return this.api.post<Enrollment>('/enrollments', payload).pipe(
-      tap(created => this.mine.update(list => [created, ...list.filter(e => e.id !== created.id)])),
+      tap(created => this.list.items.update(list => [created, ...list.filter(e => e.id !== created.id)])),
     );
   }
 
-  /** `POST /api/enrollments/{id}/cancel` — отмена своей заявки; отменённые в списке не показываем. */
   cancel(id: string): Observable<Enrollment> {
     return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/cancel`).pipe(
-      tap(() => this.mine.update(list => list.filter(e => e.id !== id))),
+      tap(() => this.list.items.update(list => list.filter(e => e.id !== id))),
     );
   }
 
-  /** `POST /api/enrollments/{id}/confirm` — подтверждение входящей заявки организатором. */
+  /** Подтверждение и отклонение — для организатора кружка и администратора. */
   confirm(id: string): Observable<Enrollment> {
     return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/confirm`);
   }
 
-  /** `POST /api/enrollments/{id}/reject` — отклонение входящей заявки, причина необязательна. */
   reject(id: string, reason?: string): Observable<Enrollment> {
     return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/reject`, reason ? { reason } : {});
   }
 
-  /** Локально обновляет копию ребёнка в заявках после его редактирования. */
+  /** У заявок своя копия ребёнка — обновляем её после редактирования. */
   replaceChild(child: Child): void {
-    this.mine.update(list => list.map(e => (e.forChild?.id === child.id ? { ...e, forChild: child } : e)));
-  }
-
-  private reset(): void {
-    this.mine.set([]);
-    this.status.set('idle');
-    this.error.set('');
+    this.list.items.update(list => list.map(e => (e.forChild?.id === child.id ? { ...e, forChild: child } : e)));
   }
 }

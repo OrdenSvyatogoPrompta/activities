@@ -6,7 +6,22 @@ export type DayOfWeek = 'Пн' | 'Вт' | 'Ср' | 'Чт' | 'Пт' | 'Сб' | '�
 
 export type VisitType = 'recurring' | 'oneTime' | 'both';
 
-/** Слот расписания: день недели и время `HH:MM`. */
+export const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
+
+export const WEEK_DAYS: DayOfWeek[] = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+export const VISIT_TYPE_LABEL: Record<VisitType, string> = {
+  recurring: 'Постоянные занятия',
+  oneTime: 'Разовые занятия',
+  both: 'Постоянные и разовые',
+};
+
+export const PRICE_TYPE_LABEL: Record<PriceType, string> = {
+  free: 'Бесплатно',
+  paid: 'Платно',
+  pushkin: '🎭 Пушкинская карта',
+};
+
 export interface ScheduleSlot {
   day: DayOfWeek;
   timeFrom: string;
@@ -18,7 +33,7 @@ export interface Branch {
   name: string;
   address: string;
   phone: string;
-  /** Человекочитаемое расписание (формирует сервер, группы через `\n`). */
+  /** Группы слотов через `\n`. */
   schedule: string;
   days: DayOfWeek[];
   slots: ScheduleSlot[];
@@ -44,6 +59,5 @@ export interface Club {
   priceAmount: number;
   priceType: PriceType;
   tags: string[];
-  /** Всегда ≥ 1 филиала; `address/phone/schedule` верхнего уровня — данные первого. */
   branches: Branch[];
 }

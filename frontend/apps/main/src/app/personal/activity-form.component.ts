@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, inject, output, signal } from '@ang
 
 import { ApiError, toApiError } from '../api/api-error';
 import { Activity, CreateActivityBranchPayload, CreateActivityPayload } from '../models/activity.model';
-import { ClubCategory, DayOfWeek, PriceType, ScheduleSlot, VisitType } from '../models/club.model';
+import {
+  CATEGORIES, ClubCategory, DayOfWeek, PRICE_TYPE_LABEL, PriceType, ScheduleSlot, VISIT_TYPE_LABEL, VisitType, WEEK_DAYS,
+} from '../models/club.model';
 import { ActivitiesService } from '../services/activities.service';
-import { CATEGORIES, PRICE_TYPE_LABEL, VISIT_TYPE_LABEL, WEEK_DAYS } from './personal.constants';
+import { toInt } from '../utils/format';
 
-/** Группа слотов в форме: несколько дней с одним временем. */
+/** Несколько дней с одним временем; на сервер уходит слотами по дню. */
 interface SlotGroup {
   key: number;
   days: DayOfWeek[];
@@ -14,7 +16,6 @@ interface SlotGroup {
   timeTo: string;
 }
 
-/** Черновик филиала в форме. */
 interface BranchDraft {
   key: number;
   name: string;
@@ -42,27 +43,14 @@ function newBranch(name = ''): BranchDraft {
   return { key: nextKey++, name, address: '', phone: '', groups: [newGroup()] };
 }
 
-/** Неотрицательное целое из поля ввода или `null`. */
-function toInt(value: string): number | null {
-  const trimmed = value.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : null;
-}
-
-/** Ключ ошибки поля филиала. */
 function branchKey(bi: number, field: BranchField | 'slots'): string {
   return `branches[${bi}].${field}`;
 }
 
-/** Ключ ошибки группы слотов (на сервере групп нет — туда сводятся ошибки её слотов). */
 function groupKey(bi: number, gi: number): string {
   return `branches[${bi}].groups[${gi}]`;
 }
 
-/**
- * Форма создания активности (`POST /api/me/activities`): общие поля и 1–10 филиалов,
- * у каждого — группы слотов «дни + время». Ошибки сервера (`branches[1].slots[0].timeTo`)
- * показываются у соответствующего филиала/группы, остальные — списком под формой.
- */
 @Component({
   selector: 'act-activity-form',
   styleUrl: './activity-form.component.scss',
@@ -155,7 +143,6 @@ function groupKey(bi: number, gi: number): string {
         @if (errors()['tags']; as msg) { <span class="field__error">{{ msg }}</span> }
       </div>
 
-      <!-- Филиалы -->
       @for (branch of branches(); track branch.key; let bi = $index) {
         <div class="branch-form">
           <div class="branch-form__head">
@@ -243,7 +230,7 @@ export class ActivityFormComponent {
   readonly weekDays   = WEEK_DAYS;
   readonly categories = CATEGORIES;
   readonly visitTypes = Object.keys(VISIT_TYPE_LABEL) as VisitType[];
-  readonly priceTypes: PriceType[] = ['free', 'paid', 'pushkin'];
+  readonly priceTypes = Object.keys(PRICE_TYPE_LABEL) as PriceType[];
   readonly visitTypeLabel = VISIT_TYPE_LABEL;
   readonly priceTypeLabel = PRICE_TYPE_LABEL;
   readonly maxBranches    = MAX_BRANCHES;
@@ -260,16 +247,12 @@ export class ActivityFormComponent {
   readonly tags        = signal('');
   readonly branches    = signal<BranchDraft[]>([newBranch('Основной')]);
 
-  /** Ошибки по ключам: поля верхнего уровня, `branches[i].field`, `branches[i].groups[j]`. */
   readonly errors     = signal<Record<string, string>>({});
-  /** Ошибки, которые не удалось привязать к полю. */
+  /** Ошибки сервера, не привязанные к полю. */
   readonly formErrors = signal<string[]>([]);
   readonly creating   = signal(false);
 
-  /**
-   * Для последней отправки: индекс слота в `branches[i].slots` → индекс группы в форме.
-   * Нужен, чтобы ошибку сервера по слоту показать у группы.
-   */
+  /** `[филиал][слот] → группа` последней отправки: ошибку слота показываем у группы. */
   private slotToGroup: number[][] = [];
 
   branchError(bi: number, field: BranchField | 'slots'): string {
@@ -279,8 +262,6 @@ export class ActivityFormComponent {
   groupError(bi: number, gi: number): string {
     return this.errors()[groupKey(bi, gi)] ?? '';
   }
-
-  // ─── Филиалы и расписание ──────────────────────────────────────────────────
 
   addBranch(): void {
     if (this.branches().length >= MAX_BRANCHES) return;
@@ -316,8 +297,6 @@ export class ActivityFormComponent {
     this.clearBranchErrors();
   }
 
-  // ─── Отправка ──────────────────────────────────────────────────────────────
-
   submit(): void {
     if (this.creating()) return;
     const payload = this.buildPayload();
@@ -336,7 +315,6 @@ export class ActivityFormComponent {
     });
   }
 
-  /** Клиентская валидация по контракту; при ошибках возвращает `null` и показывает их в форме. */
   private buildPayload(): CreateActivityPayload | null {
     const errors: Record<string, string> = {};
     const name = this.name().trim();
@@ -401,7 +379,6 @@ export class ActivityFormComponent {
     };
   }
 
-  /** Раскладывает `violations` по полям формы; что не сопоставилось — в список под формой. */
   private applyServerErrors(apiError: ApiError): void {
     const errors: Record<string, string> = {};
     const unmatched: string[] = [];
@@ -414,12 +391,9 @@ export class ActivityFormComponent {
     }
 
     this.errors.set(errors);
-    this.formErrors.set(
-      apiError.violations.length > 0 ? unmatched : [apiError.message],
-    );
+    this.formErrors.set(apiError.violations.length > 0 ? unmatched : [apiError.message]);
   }
 
-  /** Ключ поля формы для `propertyPath` сервера или `null`, если поля в форме нет. */
   private violationKey(path: string, branchCount: number): string | null {
     if (TOP_FIELDS.includes(path)) return path;
     if (/^tags\[\d+\]$/.test(path)) return 'tags';
