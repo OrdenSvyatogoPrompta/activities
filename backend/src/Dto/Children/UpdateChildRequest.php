@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace App\Dto\Children;
 
+use App\Entity\Enum\Gender;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Тело `PATCH /api/me/children/{id}` — частичное обновление.
- *
- * Отсутствующее (или null) поле не меняется. Исключение — `lastName`: если поле передано
- * со значением null или пустой строкой, фамилия стирается (наличие ключа проверяет контроллер).
+ * null — поле не меняется; кроме `lastName`: переданный null стирает фамилию.
  */
 final readonly class UpdateChildRequest
 {
@@ -25,7 +23,7 @@ final readonly class UpdateChildRequest
         #[Assert\Range(notInRangeMessage: 'Возраст должен быть от {{ min }} до {{ max }} лет', min: 1, max: 18)]
         public ?int $age = null,
 
-        #[Assert\Choice(choices: ChildGender::VALUES, message: ChildGender::MESSAGE)]
+        #[Assert\Choice(callback: [Gender::class, 'values'], message: 'Пол должен быть male или female')]
         public ?string $gender = null,
     ) {
     }

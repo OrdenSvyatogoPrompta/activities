@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Dto\Auth;
 
-/**
- * Пользователь в ответах API: `{ id, name, email, roles, stats }`.
- */
 final readonly class UserView
 {
     /**

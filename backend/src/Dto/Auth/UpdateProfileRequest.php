@@ -6,9 +6,6 @@ namespace App\Dto\Auth;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Тело PATCH /api/me. Не переданное поле (null) не меняется.
- */
 final readonly class UpdateProfileRequest
 {
     public function __construct(

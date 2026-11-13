@@ -6,9 +6,6 @@ namespace App\Dto\Admin;
 
 use App\Entity\User;
 
-/**
- * Краткие данные пользователя для администратора: автор активности, заявитель, владелец кружка.
- */
 final readonly class UserRefView
 {
     public function __construct(

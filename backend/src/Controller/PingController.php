@@ -2,14 +2,13 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Тестовый эндпоинт: проверка цепочки nginx -> php-fpm -> Symfony.
+ * Проверка цепочки nginx → php-fpm → Symfony.
  */
-final class PingController extends AbstractController
+final class PingController extends ApiController
 {
     #[Route('/api/ping', name: 'api_ping', methods: ['GET'])]
     public function __invoke(): JsonResponse

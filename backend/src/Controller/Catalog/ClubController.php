@@ -4,25 +4,20 @@ declare(strict_types=1);
 
 namespace App\Controller\Catalog;
 
+use App\Controller\ApiController;
 use App\Repository\ClubRepository;
 use App\Service\Catalog\ClubViewFactory;
 use App\Service\Catalog\PublicCache;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Публичный каталог кружков (решение D4: весь опубликованный каталог одним списком,
- * фильтрация на клиенте). Доступ без токена — правило `^/api/clubs` в security.yaml.
+ * Весь опубликованный каталог одним списком: фильтрует клиент.
  */
 #[Route('/api/clubs', name: 'api_clubs_')]
-final class ClubController extends AbstractController
+final class ClubController extends ApiController
 {
-    /** Русский текст без экранирования \uXXXX — ответ каталога заметно короче */
-    private const array JSON_CONTEXT = ['json_encode_options' => JsonResponse::DEFAULT_ENCODING_OPTIONS | \JSON_UNESCAPED_UNICODE];
-
     public function __construct(
         private readonly ClubRepository $clubs,
         private readonly ClubViewFactory $views,
@@ -33,7 +28,7 @@ final class ClubController extends AbstractController
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(Request $request): Response
     {
-        $response = $this->json($this->views->createList($this->clubs->findPublished()), context: self::JSON_CONTEXT);
+        $response = $this->json($this->views->createList($this->clubs->findPublished()));
 
         return $this->cache->apply($response, $request);
     }
@@ -44,7 +39,7 @@ final class ClubController extends AbstractController
         $club = $this->clubs->findOnePublishedBySlug($slug)
             ?? throw $this->createNotFoundException('Кружок не найден');
 
-        $response = $this->json($this->views->create($club), context: self::JSON_CONTEXT);
+        $response = $this->json($this->views->create($club));
 
         return $this->cache->apply($response, $request);
     }

@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace App\Dto\Activity;
 
-/**
- * Активность организатора в ответе API (совместима с `ManagedActivity` фронтенда).
- *
- * `clubId` — slug кружка, созданного при одобрении (null до одобрения).
- * `enrollments` — заявки в этот кружок, кроме отменённых (пусто до одобрения).
- */
 final readonly class ActivityResponse
 {
     /**

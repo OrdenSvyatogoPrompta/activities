@@ -6,16 +6,12 @@ namespace App\Dto\Activity;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-/**
- * Филиал в теле создания активности: `{ name?, address, phone?, slots: [...] }`.
- */
 final readonly class ActivityBranchInput
 {
     /**
      * @param list<ScheduleSlotInput>|null $slots
      */
     public function __construct(
-        /** Пустое имя заменяется на «Основной». */
         #[Assert\Length(max: 100, maxMessage: 'Название филиала — не длиннее {{ limit }} символов')]
         public ?string $name = null,
 

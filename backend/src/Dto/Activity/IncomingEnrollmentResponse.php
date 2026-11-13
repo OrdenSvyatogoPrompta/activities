@@ -5,11 +5,7 @@ declare(strict_types=1);
 namespace App\Dto\Activity;
 
 /**
- * Входящая заявка в кружок активности (совместима с `IncomingEnrollment` фронтенда).
- *
- * Организатор видит только имя заявителя и имя ребёнка (контакты — открытый вопрос).
- * `branchId` — филиал кружка; `activityBranchId` — филиал активности, из которого он создан
- * при одобрении (Branch::getSourceActivityBranch()), чтобы показать заявку под филиалом активности.
+ * `branchId` — филиал кружка, `activityBranchId` — филиал активности, из которого он создан.
  */
 final readonly class IncomingEnrollmentResponse
 {

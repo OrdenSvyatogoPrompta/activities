@@ -9,18 +9,10 @@ use App\Dto\Catalog\ClubView;
 use App\Dto\Catalog\ScheduleSlotView;
 use App\Entity\Branch;
 use App\Entity\Club;
-use App\Entity\Enum\Category;
-use App\Entity\Enum\DayOfWeek;
-use App\Entity\ScheduleSlot;
 use App\Service\Formatter\AgeFormatter;
 use App\Service\Formatter\PriceFormatter;
 use App\Service\Formatter\ScheduleFormatter;
 
-/**
- * Собирает ответ API каталога из сущности Club: производные поля (`age`, `price`,
- * `schedule`, `days`) считают форматтеры, верхнеуровневые `address/phone/schedule`
- * берутся из первого филиала.
- */
 final readonly class ClubViewFactory
 {
     public function __construct(
@@ -53,7 +45,7 @@ final readonly class ClubViewFactory
         return new ClubView(
             id: $club->getSlug(),
             name: $club->getName(),
-            categories: array_map(static fn (Category $category): string => $category->value, $club->getCategories()),
+            categories: array_column($club->getCategories(), 'value'),
             emoji: $club->getEmoji(),
             color: $club->getColor(),
             shortDescription: $club->getShortDescription(),
@@ -61,7 +53,7 @@ final readonly class ClubViewFactory
             age: $this->ageFormatter->format($club->getAgeMin(), $club->getAgeMax()),
             ageMin: $club->getAgeMin(),
             ageMax: $club->getAgeMax(),
-            days: self::dayValues($club->getDays()),
+            days: array_column($club->getDays(), 'value'),
             visitType: $club->getVisitType()->value,
             schedule: $first?->schedule ?? '',
             address: $first?->address ?? '',
@@ -80,18 +72,11 @@ final readonly class ClubViewFactory
             id: $branch->getId()->toRfc4122(),
             name: $branch->getName(),
             address: $branch->getAddress(),
-            // Во фронтовой модели phone — строка; у филиалов одобренных активностей его может не быть
+            // Во фронтовой модели phone — обязательная строка
             phone: $branch->getPhone() ?? '',
             schedule: $this->scheduleFormatter->formatBranch($branch),
-            days: self::dayValues($branch->getDays()),
-            slots: array_map(
-                static fn (ScheduleSlot $slot): ScheduleSlotView => new ScheduleSlotView(
-                    $slot->getDay()->value,
-                    $slot->getTimeFromString(),
-                    $slot->getTimeToString(),
-                ),
-                $branch->getSlots(),
-            ),
+            days: array_column($branch->getDays(), 'value'),
+            slots: array_map(ScheduleSlotView::fromEntity(...), $branch->getSlots()),
         );
     }
 
@@ -104,15 +89,5 @@ final readonly class ClubViewFactory
         usort($branches, static fn (Branch $a, Branch $b): int => $a->getPosition() <=> $b->getPosition());
 
         return $branches;
-    }
-
-    /**
-     * @param list<DayOfWeek> $days
-     *
-     * @return list<string>
-     */
-    private static function dayValues(array $days): array
-    {
-        return array_map(static fn (DayOfWeek $day): string => $day->value, $days);
     }
 }

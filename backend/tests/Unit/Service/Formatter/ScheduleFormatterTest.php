@@ -105,6 +105,6 @@ final class ScheduleFormatterTest extends TestCase
             new ScheduleSlot(DayOfWeek::Monday, '12:00', '13:00'),
         ];
 
-        self::assertSame([DayOfWeek::Monday, DayOfWeek::Sunday], $this->formatter->days($slots));
+        self::assertSame([DayOfWeek::Monday, DayOfWeek::Sunday], ScheduleSlot::days($slots));
     }
 }

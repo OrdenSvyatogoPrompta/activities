@@ -7,10 +7,8 @@ namespace App\Dto\Auth;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Тело POST /api/auth/register.
- *
- * У полей есть значения по умолчанию: отсутствующее поле даёт понятное нарушение
- * валидации («Укажите …»), а не ошибку денормализации.
+ * Значения по умолчанию — чтобы отсутствующее поле дало нарушение «Укажите …»,
+ * а не ошибку денормализации.
  */
 final readonly class RegisterRequest
 {

@@ -10,11 +10,7 @@ use App\Entity\Enum\DayOfWeek;
 use App\Entity\ScheduleSlot;
 
 /**
- * Поле `schedule` для API.
- *
- * Слоты с одинаковым временем группируются: `Пн, Ср, Пт · 15:00–18:00`; группы — через `\n`,
- * в порядке первого дня группы (затем по времени). Если у филиала задан scheduleNote
- * (например, «По договорённости»), возвращается он.
+ * Слоты с одинаковым временем группируются: `Пн, Ср, Пт · 15:00–18:00`, группы — через `\n`.
  */
 final class ScheduleFormatter
 {
@@ -42,28 +38,8 @@ final class ScheduleFormatter
 
         // Слоты отсортированы, поэтому группы уже идут в порядке первого дня и времени
         return implode("\n", array_map(
-            static fn (array $group): string => implode(', ', array_map(
-                static fn (DayOfWeek $day): string => $day->value,
-                DayOfWeek::sorted($group['days']),
-            )).' · '.$group['time'],
+            static fn (array $group): string => implode(', ', array_column(DayOfWeek::sorted($group['days']), 'value')).' · '.$group['time'],
             array_values($groups),
         ));
-    }
-
-    /**
-     * Дни недели слотов, уникальные, Пн…Вс.
-     *
-     * @param iterable<ScheduleSlot> $slots
-     *
-     * @return list<DayOfWeek>
-     */
-    public function days(iterable $slots): array
-    {
-        $days = [];
-        foreach ($slots as $slot) {
-            $days[] = $slot->getDay();
-        }
-
-        return DayOfWeek::sorted($days);
     }
 }

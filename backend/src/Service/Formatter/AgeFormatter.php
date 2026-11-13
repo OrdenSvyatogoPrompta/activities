@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Service\Formatter;
 
 /**
- * Поле `age` для API: `6–18 лет` (длинное тире), склонение «год/года/лет» по последнему числу.
+ * `6–18 лет`: склонение по последнему числу.
  */
 final class AgeFormatter
 {
@@ -16,9 +16,6 @@ final class AgeFormatter
         return $range.' '.self::years($ageMax);
     }
 
-    /**
-     * «год», «года» или «лет» для числа: 1, 21 → год; 2–4, 22 → года; 0, 5–20, 111 → лет.
-     */
     public static function years(int $number): string
     {
         $mod100 = abs($number) % 100;
