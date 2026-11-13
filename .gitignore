@@ -1,2 +1,9 @@
 public/
+# IDE
 .idea/
+
+# Claude Code — личные локальные настройки и заметки.
+# Общее для команды (.claude/skills/, .claude/settings.json,
+# .claude/agents/, .claude/commands/, CLAUDE.md) коммитится.
+.claude/settings.local.json
+CLAUDE.local.md
