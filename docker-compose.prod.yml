@@ -1,0 +1,102 @@
+# Production: образы берутся из GHCR, переменные — из .env рядом с этим файлом
+# (его создаёт деплой из секретов GitHub, см. .github/workflows/deploy.yml).
+#
+# Снаружи открыт только caddy (80/443). Остальные сервисы — во внутренней сети
+# без выхода в интернет; файловые системы контейнеров только для чтения,
+# все лишние привилегии Linux отключены.
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  restart: unless-stopped
+
+services:
+  caddy:
+    <<: *hardening
+    image: caddy:2-alpine
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs:
+      - /tmp
+    networks:
+      - edge
+    depends_on:
+      - web
+
+  web:
+    <<: *hardening
+    image: ${IMAGE_PREFIX}-web:${TAG}
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - edge
+      - internal
+    depends_on:
+      - backend
+
+  backend:
+    <<: *hardening
+    image: ${IMAGE_PREFIX}-backend:${TAG}
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/www/backend/var:uid=82,gid=82   # кэш Symfony; 82 — www-data в alpine
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: "mysql://activities:${MYSQL_PASSWORD}@mysql:3306/activities?serverVersion=8.4"
+    networks:
+      - internal
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.4
+    # Entrypoint MySQL стартует от root и переключается на пользователя mysql,
+    # поэтому оставлены только нужные для этого привилегии
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: activities
+      MYSQL_USER: activities
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - internal
+
+volumes:
+  mysql-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  # Caddy ↔ nginx; имеет выход в интернет (нужен Caddy для сертификатов)
+  edge:
+  # nginx ↔ php-fpm ↔ MySQL; без выхода в интернет
+  internal:
+    name: activities.loc
+    internal: true
