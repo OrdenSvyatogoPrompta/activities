@@ -1,11 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { Branch } from '../models/club.model';
+import { LoadStatus } from '../api/api-client';
+import { formErrorMessage, toApiError } from '../api/api-error';
+import { Branch, Club, ClubCategory } from '../models/club.model';
+import { CreateEnrollmentPayload, isActiveEnrollment } from '../models/enrollment.model';
+import { Child } from '../models/user.model';
 import { CATEGORY_BADGE } from '../home/home.component';
 import { AuthService } from '../services/auth.service';
+import { ChildrenService } from '../services/children.service';
 import { ClubsService } from '../services/clubs.service';
+import { EnrollmentsService } from '../services/enrollments.service';
 import { getIllustration } from '../utils/illustrations';
+
+/** Ключ участника «для себя» (у ребёнка ключ — его id). */
+const SELF = '__self__';
+
+type ClubLoadState = LoadStatus | 'notFound';
 
 @Component({
   selector: 'act-club',
@@ -54,7 +66,7 @@ import { getIllustration } from '../utils/illustrations';
               <p class="section__text">{{ club.fullDescription }}</p>
             </div>
 
-            @if (club.branches && club.branches.length > 0) {
+            @if (club.branches.length > 1) {
               <div class="section">
                 <div class="section__title">Филиал</div>
                 <div class="branches">
@@ -81,14 +93,16 @@ import { getIllustration } from '../utils/illustrations';
                 }
               </div>
             } @else {
-              <div class="section">
-                <div class="section__title">Контакты и расписание</div>
-                <dl class="details">
-                  <div class="detail-row"><dt>Адрес</dt><dd>{{ club.address }}</dd></div>
-                  <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + club.phone" class="phone-link">{{ club.phone }}</a></dd></div>
-                  <div class="detail-row"><dt>Расписание</dt><dd>{{ club.schedule }}</dd></div>
-                </dl>
-              </div>
+              @if (club.branches[0]; as branch) {
+                <div class="section">
+                  <div class="section__title">Контакты и расписание</div>
+                  <dl class="details">
+                    <div class="detail-row"><dt>Адрес</dt><dd>{{ branch.address }}</dd></div>
+                    <div class="detail-row"><dt>Телефон</dt><dd><a [href]="'tel:' + branch.phone" class="phone-link">{{ branch.phone }}</a></dd></div>
+                    <div class="detail-row"><dt>Расписание</dt><dd class="schedule">{{ branch.schedule }}</dd></div>
+                  </dl>
+                </div>
+              }
             }
 
             <div class="section">
@@ -99,18 +113,22 @@ import { getIllustration } from '../utils/illustrations';
               </dl>
             </div>
 
-            <div class="section">
-              <div class="section__title">Теги</div>
-              <div class="tags">
-                @for (tag of club.tags; track tag) {
-                  <span class="tag">#{{ tag }}</span>
-                }
+            @if (club.tags.length > 0) {
+              <div class="section">
+                <div class="section__title">Теги</div>
+                <div class="tags">
+                  @for (tag of club.tags; track tag) {
+                    <span class="tag">#{{ tag }}</span>
+                  }
+                </div>
               </div>
-            </div>
+            }
 
             <div class="cta-section">
-              @if (alreadyEnrolled()) {
-                <div class="enrolled-badge">✓ Вы записаны</div>
+              @if (enrolledLabels().length > 0) {
+                <div class="enrolled-badge">✓ Заявка: {{ enrolledLabels().join(', ') }}</div>
+              }
+              @if (allEnrolled()) {
                 <a routerLink="/personal" class="btn-secondary">Мои записи</a>
               } @else {
                 <button class="btn-primary" (click)="openEnrollment()">Записаться</button>
@@ -122,13 +140,13 @@ import { getIllustration } from '../utils/illustrations';
 
       <!-- Bottom sheet записи -->
       @if (enrollmentOpen()) {
-        <div class="sheet-backdrop" (click)="enrollmentOpen.set(false)"></div>
+        <div class="sheet-backdrop" (click)="closeEnrollment()"></div>
         <div class="sheet">
           <div class="sheet__handle"></div>
           <h2 class="sheet__title">Запись в кружок</h2>
           <p class="sheet__club">{{ club.name }}</p>
 
-          @if (club.branches && club.branches.length > 1) {
+          @if (club.branches.length > 1) {
             <div class="sheet__section">
               <div class="sheet__label">Выберите филиал</div>
               <div class="sheet__chips">
@@ -144,32 +162,36 @@ import { getIllustration } from '../utils/illustrations';
             <div class="sheet__label">Для кого?</div>
             <div class="sheet__chips">
               <button class="s-chip" [class.s-chip--active]="forChild() === null"
-                (click)="forChild.set(null)">Для себя</button>
-              @for (child of authService.user()?.children ?? []; track child.id) {
+                (click)="selectParticipant(null)">Для себя{{ isEnrolled(null) ? ' ✓' : '' }}</button>
+              @for (child of childrenService.children(); track child.id) {
                 <button class="s-chip" [class.s-chip--active]="forChild()?.id === child.id"
-                  (click)="forChild.set(child)">{{ child.firstName }}, {{ child.age }} л.</button>
+                  (click)="selectParticipant(child)">
+                  {{ child.firstName }}, {{ child.age }} л.{{ isEnrolled(child) ? ' ✓' : '' }}
+                </button>
               }
             </div>
-            @if (!authService.user()) {
-              <p class="sheet__hint">
-                <a routerLink="/auth/login" style="color:#6880f8">Войдите</a>, чтобы записаться
-              </p>
+            @if (selectedEnrolled()) {
+              <p class="sheet__hint">У этого участника уже есть активная заявка в этот кружок</p>
             }
           </div>
 
+          @if (enrollError()) {
+            <p class="inline-error sheet__error">{{ enrollError() }}</p>
+          }
+
           <button class="sheet__submit" (click)="confirmEnrollment(club)"
-            [disabled]="!authService.user()">
-            Подтвердить запись
+            [disabled]="submitting() || selectedEnrolled()">
+            {{ submitting() ? 'Отправляем…' : 'Отправить заявку' }}
           </button>
         </div>
       }
-      <!-- Модалка успешной записи -->
+      <!-- Модалка: заявка отправлена -->
       @if (enrollmentDone()) {
         <div class="modal-backdrop" (click)="enrollmentDone.set(false)">
           <div class="modal" (click)="$event.stopPropagation()">
-            <div class="modal__icon">🎉</div>
-            <h2 class="modal__title">Запись подтверждена!</h2>
-            <p class="modal__text">Вы записались. Подробности в личном кабинете.</p>
+            <div class="modal__icon">📨</div>
+            <h2 class="modal__title">Заявка отправлена</h2>
+            <p class="modal__text">Ждите подтверждения от организатора. Статус заявки — в личном кабинете.</p>
             <div class="modal__actions">
               <a routerLink="/personal" class="modal__btn-primary">Мои записи</a>
               <button class="modal__btn-ghost" (click)="enrollmentDone.set(false)">Остаться здесь</button>
@@ -178,6 +200,17 @@ import { getIllustration } from '../utils/illustrations';
         </div>
       }
 
+    } @else if (loadState() === 'loading') {
+      <div class="not-found">
+        <div class="spinner"></div>
+        <p>Загружаем кружок…</p>
+      </div>
+    } @else if (loadState() === 'error') {
+      <div class="not-found">
+        <p>{{ loadError() }}</p>
+        <button class="state__retry" (click)="loadClub()">Повторить</button>
+        <a routerLink="/" class="btn-secondary">На главную</a>
+      </div>
     } @else {
       <div class="not-found">
         <p>Кружок не найден</p>
@@ -187,61 +220,142 @@ import { getIllustration } from '../utils/illustrations';
   `,
 })
 export class ClubComponent {
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly route      = inject(ActivatedRoute);
+  private readonly router     = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly clubsService = inject(ClubsService);
+  private readonly enrollments  = inject(EnrollmentsService);
 
-  readonly authService   = inject(AuthService);
-  readonly categoryBadge = CATEGORY_BADGE;
-  readonly activeBranch  = signal<Branch | null>(null);
-  readonly enrollmentOpen   = signal(false);
-  readonly enrollmentDone   = signal(false);
-  readonly selectedBranch   = signal<Branch | null>(null);
-  readonly forChild         = signal<import('../services/auth.service').Child | null>(null);
+  readonly authService     = inject(AuthService);
+  readonly childrenService = inject(ChildrenService);
+  readonly categoryBadge   = CATEGORY_BADGE;
 
-  readonly club = computed(() => {
-    const id = this.route.snapshot.paramMap.get('id') ?? '';
-    return this.clubsService.getById(id);
-  });
+  readonly club      = signal<Club | null>(null);
+  readonly loadState = signal<ClubLoadState>('idle');
+  readonly loadError = signal('');
+
+  readonly activeBranch   = signal<Branch | null>(null);
+  readonly enrollmentOpen = signal(false);
+  readonly enrollmentDone = signal(false);
+  readonly selectedBranch = signal<Branch | null>(null);
+  readonly forChild       = signal<Child | null>(null);
+  readonly submitting     = signal(false);
+  readonly enrollError    = signal('');
 
   readonly displayBranch = computed(() =>
-    this.activeBranch() ?? this.club()?.branches?.[0] ?? null,
+    this.activeBranch() ?? this.club()?.branches[0] ?? null,
   );
 
-  readonly alreadyEnrolled = computed(() => {
-    const u = this.authService.user();
+  /** Активные (`pending|confirmed`) заявки в этот кружок. */
+  private readonly activeEnrollments = computed(() => {
     const c = this.club();
-    if (!u || !c) return false;
-    return u.enrollments.some(e => e.clubId === c.id);
+    if (!c) return [];
+    return this.enrollments.mine().filter(e => e.clubId === c.id && isActiveEnrollment(e));
   });
 
-  illust(category: string, color: string): string {
-    return getIllustration(category as any, color);
+  /** Ключи участников, у которых уже есть активная заявка. */
+  private readonly enrolledKeys = computed(() =>
+    new Set(this.activeEnrollments().map(e => e.forChild?.id ?? SELF)),
+  );
+
+  readonly enrolledLabels = computed(() => [
+    ...new Set(this.activeEnrollments().map(e => e.forChild ? e.forChild.firstName : 'для себя')),
+  ]);
+
+  /** Все участники (сам пользователь и каждый ребёнок) уже подали заявку. */
+  readonly allEnrolled = computed(() => {
+    if (!this.authService.user()) return false;
+    const keys = this.enrolledKeys();
+    return keys.has(SELF) && this.childrenService.children().every(c => keys.has(c.id));
+  });
+
+  readonly selectedEnrolled = computed(() => this.enrolledKeys().has(this.forChild()?.id ?? SELF));
+
+  constructor() {
+    this.loadClub();
+    if (this.authService.user()) {
+      this.enrollments.loadMine();
+      this.childrenService.load();
+    }
+  }
+
+  loadClub(): void {
+    const slug = this.route.snapshot.paramMap.get('id') ?? '';
+    this.loadState.set('loading');
+    this.clubsService.getBySlug(slug)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: club => {
+          this.club.set(club);
+          this.loadState.set('loaded');
+        },
+        error: (err: unknown) => {
+          const apiError = toApiError(err, 'Не удалось загрузить кружок');
+          this.loadError.set(apiError.message);
+          this.loadState.set(apiError.status === 404 ? 'notFound' : 'error');
+        },
+      });
+  }
+
+  illust(category: ClubCategory, color: string): string {
+    return getIllustration(category, color);
+  }
+
+  isEnrolled(child: Child | null): boolean {
+    return this.enrolledKeys().has(child?.id ?? SELF);
+  }
+
+  selectParticipant(child: Child | null): void {
+    this.forChild.set(child);
+    this.enrollError.set('');
   }
 
   openEnrollment(): void {
     if (!this.authService.user()) {
-      this.router.navigate(['/auth/login']);
+      this.router.navigate(['/auth/login'], { queryParams: { returnUrl: this.router.url } });
       return;
     }
-    const branches = this.club()?.branches;
-    this.selectedBranch.set(branches?.[0] ?? null);
+    const club = this.club();
+    this.selectedBranch.set(this.activeBranch() ?? club?.branches[0] ?? null);
+    // по умолчанию — первый участник без активной заявки
+    const free = this.childrenService.children().find(c => !this.isEnrolled(c));
+    this.forChild.set(this.isEnrolled(null) && free ? free : null);
+    this.enrollError.set('');
     this.enrollmentOpen.set(true);
   }
 
-  confirmEnrollment(club: NonNullable<ReturnType<typeof this.club>>): void {
-    const branch = this.selectedBranch() ?? this.displayBranch();
-    this.authService.enroll({
-      clubId: club.id,
-      clubName: club.name,
-      branchId: branch?.id ?? null,
-      branchName: branch?.name ?? club.address,
-      schedule: branch?.schedule ?? club.schedule,
-      days: (branch as any)?.days ?? club.days ?? [],
-      color: club.color,
-      forChild: this.forChild(),
+  closeEnrollment(): void {
+    if (!this.submitting()) this.enrollmentOpen.set(false);
+  }
+
+  confirmEnrollment(club: Club): void {
+    if (this.submitting() || this.selectedEnrolled()) return;
+    const payload: CreateEnrollmentPayload = { clubId: club.id };
+    const branch = this.selectedBranch() ?? club.branches[0];
+    if (branch) payload.branchId = branch.id;
+    const child = this.forChild();
+    if (child) payload.childId = child.id;
+
+    this.submitting.set(true);
+    this.enrollError.set('');
+    this.enrollments.create(payload).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.enrollmentOpen.set(false);
+        this.enrollmentDone.set(true);
+      },
+      error: (err: unknown) => {
+        this.submitting.set(false);
+        const apiError = toApiError(err, 'Не удалось отправить заявку');
+        if (apiError.status === 409) {
+          this.enrollError.set('У этого участника уже есть активная заявка в этот кружок');
+          this.enrollments.loadMine(true);
+        } else if (apiError.status === 404) {
+          this.enrollError.set('Кружок больше недоступен для записи');
+        } else {
+          this.enrollError.set(formErrorMessage(apiError, []));
+        }
+      },
     });
-    this.enrollmentOpen.set(false);
-    this.enrollmentDone.set(true);
   }
 }

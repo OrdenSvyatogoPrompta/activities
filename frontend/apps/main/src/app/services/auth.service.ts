@@ -152,13 +152,6 @@ export class AuthService {
     this.user.set({ ...u, children: u.children.filter(c => c.id !== id) });
   }
 
-  enroll(enrollment: Omit<Enrollment, 'id' | 'enrolledAt' | 'days' | 'color'> & { days?: string[]; color?: string }): void {
-    const u = this.user();
-    if (!u) return;
-    const e: Enrollment = { days: [], color: '#6880f8', ...enrollment, id: `e${Date.now()}`, enrolledAt: new Date().toISOString().slice(0, 10) };
-    this.user.set({ ...u, enrollments: [...u.enrollments, e] });
-  }
-
   cancelEnrollment(id: string): void {
     const u = this.user();
     if (!u) return;
