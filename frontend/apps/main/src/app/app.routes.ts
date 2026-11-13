@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { authGuard } from './auth/auth.guard';
+
 export const routes: Routes = [
   {
     path: '',
@@ -19,6 +21,7 @@ export const routes: Routes = [
   },
   {
     path: 'personal',
+    canActivate: [authGuard],
     loadComponent: () => import('./personal/personal-dashboard.component').then((m) => m.PersonalDashboardComponent),
   },
   // /org редиректит в /personal — один аккаунт для всех
