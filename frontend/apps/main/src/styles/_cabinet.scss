@@ -24,15 +24,30 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
+  }
+
+  &__link,
+  &__logout {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--color-border);
+    background: var(--color-surface);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    @media (max-width: 560px) { padding: 5px 10px; }
   }
 
   &__link {
-    font-size: 13px;
-    font-weight: 600;
     color: var(--brand-purple);
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
+    border-color: var(--brand-purple-muted);
+    background: var(--brand-purple-muted);
+    &:hover { border-color: var(--brand-purple); }
   }
 
   &__user {
@@ -43,19 +58,12 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--color-text-secondary);
-    @media (max-width: 560px) { max-width: 110px; }
+    @media (max-width: 560px) { max-width: 90px; }
   }
 
   &__logout {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text-muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s;
-    &:hover { color: #ef4444; }
+    color: var(--color-text-secondary);
+    &:hover { color: #ef4444; border-color: #fca5a5; background: #fef2f2; }
   }
 }
 
