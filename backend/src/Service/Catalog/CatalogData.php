@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\DataFixtures;
+namespace App\Service\Catalog;
 
 /**
  * `slots` — список [дни через запятую, с, по].

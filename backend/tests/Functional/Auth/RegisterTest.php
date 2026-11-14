@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Auth;
 
-use App\DataFixtures\AppFixtures;
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Service\Seed\DemoData;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 final class RegisterTest extends AuthApiTestCase
@@ -55,7 +55,7 @@ final class RegisterTest extends AuthApiTestCase
     {
         $this->jsonRequest('POST', '/api/auth/register', [
             'name' => 'Двойник',
-            'email' => strtoupper(AppFixtures::DEMO_EMAIL),
+            'email' => strtoupper(DemoData::DEMO_EMAIL),
             'password' => self::PASSWORD,
         ]);
 

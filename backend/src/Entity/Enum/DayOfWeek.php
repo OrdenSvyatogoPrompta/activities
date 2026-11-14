@@ -36,6 +36,16 @@ enum DayOfWeek: string
     }
 
     /**
+     * «Пн, Ср, Пт» → [Monday, Wednesday, Friday].
+     *
+     * @return list<self>
+     */
+    public static function parseList(string $days): array
+    {
+        return array_map(static fn (string $day): self => self::from(trim($day)), explode(',', $days));
+    }
+
+    /**
      * Уникальные дни в порядке Пн…Вс.
      *
      * @param iterable<self> $days

@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Activity;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 
 /**
- * Данные — AppFixtures: кружок akvarel принадлежит Марии, в нём pending-заявки Анны (ребёнок
+ * Данные — DemoData: кружок akvarel принадлежит Марии, в нём pending-заявки Анны (ребёнок
  * Маша, «Основной»), Игоря (для себя), Веры и Елены (филиал «Снеговая»). Сидовые кружки без
  * владельца: заявка Сони (дочь Марии) в gimnastika-voskhod — pending.
  */
 final class EnrollmentModerationTest extends ApiTestCase
 {
-    private const string MARIA = AppFixtures::DEMO_EMAIL;
-    private const string ADMIN = AppFixtures::ADMIN_EMAIL;
+    private const string MARIA = DemoData::DEMO_EMAIL;
+    private const string ADMIN = DemoData::ADMIN_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
     private const string IGOR = 'igor.sidorov@example.com';
     private const string VERA = 'vera.kozlova@example.com';

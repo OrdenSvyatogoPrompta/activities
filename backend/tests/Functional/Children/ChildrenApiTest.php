@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Children;
 
-use App\DataFixtures\AppFixtures;
 use App\Entity\Child;
 use App\Entity\Enrollment;
 use App\Entity\Enum\EnrollmentStatus;
 use App\Repository\ChildRepository;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Uid\Uuid;
@@ -46,7 +46,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testListReturnsOwnChildrenInCreationOrder(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->client->request('GET', self::URL);
 
@@ -73,7 +73,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testListIsEmptyForUserWithoutChildren(): void
     {
-        $this->loginAs(AppFixtures::ADMIN_EMAIL);
+        $this->loginAs(DemoData::ADMIN_EMAIL);
 
         $this->client->request('GET', self::URL);
 
@@ -83,7 +83,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testCreateReturns201AndChildAppearsInList(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => '  Лиза ', 'lastName' => 'Иванова', 'age' => 3, 'gender' => 'female']);
 
@@ -103,7 +103,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testCreateWithoutLastNameStoresNull(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Петя', 'lastName' => '  ', 'age' => 18, 'gender' => 'male']);
 
@@ -135,18 +135,18 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('invalidCreatePayloads')]
     public function testCreateValidation(array $payload, string $field, string $message): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, $payload);
 
         $problem = $this->assertProblem(422);
         self::assertContains(['propertyPath' => $field, 'message' => $message], $problem['violations']);
-        $this->assertChildrenCount(AppFixtures::DEMO_EMAIL, 2);
+        $this->assertChildrenCount(DemoData::DEMO_EMAIL, 2);
     }
 
     public function testCreateWithAgeOfWrongTypeReturns422(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Петя', 'age' => 'восемь', 'gender' => 'male']);
 
@@ -156,7 +156,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testCreateWithMalformedJsonReturns400(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->client->request('POST', self::URL, server: ['CONTENT_TYPE' => 'application/json'], content: '{"firstName":');
 
@@ -165,8 +165,8 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testPatchUpdatesOnlyPassedFields(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $artem = $this->child(DemoData::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, ['age' => 9]);
 
@@ -179,8 +179,8 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testPatchUpdatesAllFieldsAndPersists(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $sonya = $this->child(AppFixtures::DEMO_EMAIL, 'Соня')->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $sonya = $this->child(DemoData::DEMO_EMAIL, 'Соня')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$sonya, ['firstName' => 'Софья', 'lastName' => 'Петрова', 'age' => 6, 'gender' => 'female']);
         self::assertResponseStatusCodeSame(200);
@@ -195,8 +195,8 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testPatchWithNullLastNameClearsIt(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $artem = $this->child(DemoData::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, ['lastName' => null]);
 
@@ -207,8 +207,8 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testPatchWithEmptyBodyChangesNothing(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $artem = $this->child(DemoData::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, []);
 
@@ -236,8 +236,8 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('invalidPatchPayloads')]
     public function testPatchValidation(array $payload, string $field, string $message): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $artem = $this->child(AppFixtures::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $artem = $this->child(DemoData::DEMO_EMAIL, 'Артём')->getId()->toRfc4122();
 
         $this->jsonRequest('PATCH', self::URL.'/'.$artem, $payload);
 
@@ -257,7 +257,7 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('writeMethods')]
     public function testOtherUsersChildReturns404(string $method): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
         $foreign = $this->child(self::OTHER_PARENT_EMAIL, 'Маша')->getId()->toRfc4122();
 
         $this->jsonRequest($method, self::URL.'/'.$foreign, ['firstName' => 'Взлом']);
@@ -273,7 +273,7 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('writeMethods')]
     public function testUnknownIdReturns404(string $method): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest($method, self::URL.'/0190a8e2-7c3b-7d4e-8f5a-1b2c3d4e5f60', ['age' => 5]);
 
@@ -284,7 +284,7 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('writeMethods')]
     public function testMalformedIdReturns404(string $method): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
 
         $this->jsonRequest($method, self::URL.'/not-a-uuid', ['age' => 5]);
 
@@ -294,7 +294,7 @@ final class ChildrenApiTest extends ApiTestCase
 
     public function testDeleteChildWithoutEnrollmentsReturns204(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Лиза', 'age' => 3, 'gender' => 'female']);
         $id = $this->json()['id'];
 
@@ -302,7 +302,7 @@ final class ChildrenApiTest extends ApiTestCase
 
         self::assertResponseStatusCodeSame(204);
         self::assertSame('', (string) $this->client->getResponse()->getContent());
-        $this->assertChildrenCount(AppFixtures::DEMO_EMAIL, 2);
+        $this->assertChildrenCount(DemoData::DEMO_EMAIL, 2);
     }
 
     /**
@@ -317,26 +317,26 @@ final class ChildrenApiTest extends ApiTestCase
     #[DataProvider('childrenWithActiveEnrollments')]
     public function testDeleteChildWithActiveEnrollmentReturns409(string $firstName): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
-        $id = $this->child(AppFixtures::DEMO_EMAIL, $firstName)->getId()->toRfc4122();
+        $this->loginAs(DemoData::DEMO_EMAIL);
+        $id = $this->child(DemoData::DEMO_EMAIL, $firstName)->getId()->toRfc4122();
 
         $this->client->request('DELETE', self::URL.'/'.$id);
 
         $problem = $this->assertProblem(409);
         self::assertSame('Сначала отмените записи ребёнка', $problem['detail']);
-        $this->assertChildrenCount(AppFixtures::DEMO_EMAIL, 2);
+        $this->assertChildrenCount(DemoData::DEMO_EMAIL, 2);
     }
 
     public function testDeleteChildWithOnlyFinishedEnrollmentsReturns204(): void
     {
-        $this->loginAs(AppFixtures::DEMO_EMAIL);
+        $this->loginAs(DemoData::DEMO_EMAIL);
         $this->jsonRequest('POST', self::URL, ['firstName' => 'Лиза', 'age' => 3, 'gender' => 'female']);
         $id = $this->json()['id'];
 
         // Отменённая заявка не мешает удалению (статус ставится напрямую, как в фикстурах)
         $em = $this->entityManager();
         $club = $this->club('gimnastika-voskhod');
-        $enrollment = new Enrollment($this->user(AppFixtures::DEMO_EMAIL), $club, $club->getSingleBranch(), $this->childEntity($id));
+        $enrollment = new Enrollment($this->user(DemoData::DEMO_EMAIL), $club, $club->getSingleBranch(), $this->childEntity($id));
         $enrollment->setMarking(EnrollmentStatus::Cancelled->value);
         $em->persist($enrollment);
         $em->flush();
@@ -344,7 +344,7 @@ final class ChildrenApiTest extends ApiTestCase
         $this->client->request('DELETE', self::URL.'/'.$id);
 
         self::assertResponseStatusCodeSame(204);
-        $this->assertChildrenCount(AppFixtures::DEMO_EMAIL, 2);
+        $this->assertChildrenCount(DemoData::DEMO_EMAIL, 2);
     }
 
     private function childEntity(string $id): Child

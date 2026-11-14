@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Auth;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 
 final class LoginTest extends AuthApiTestCase
 {
     public function testLoginReturnsTokenUserWithStatsAndRefreshCookie(): void
     {
-        $this->jsonRequest('POST', '/api/auth/login', ['email' => AppFixtures::DEMO_EMAIL, 'password' => AppFixtures::DEMO_PASSWORD]);
+        $this->jsonRequest('POST', '/api/auth/login', ['email' => DemoData::DEMO_EMAIL, 'password' => DemoData::DEMO_PASSWORD]);
 
         self::assertResponseIsSuccessful();
         $body = $this->json();
@@ -19,7 +19,7 @@ final class LoginTest extends AuthApiTestCase
 
         $user = $body['user'];
         self::assertUserShape($user);
-        self::assertSame(AppFixtures::DEMO_EMAIL, $user['email']);
+        self::assertSame(DemoData::DEMO_EMAIL, $user['email']);
         self::assertSame('Иванова Мария', $user['name']);
         self::assertSame(['ROLE_USER'], $user['roles']);
         // Фикстуры: Артём → плавание (confirmed), Соня → гимнастика (pending);
@@ -31,7 +31,7 @@ final class LoginTest extends AuthApiTestCase
 
     public function testAdminHasAdminRole(): void
     {
-        $this->jsonRequest('POST', '/api/auth/login', ['email' => AppFixtures::ADMIN_EMAIL, 'password' => AppFixtures::ADMIN_PASSWORD]);
+        $this->jsonRequest('POST', '/api/auth/login', ['email' => DemoData::ADMIN_EMAIL, 'password' => DemoData::ADMIN_PASSWORD]);
 
         self::assertResponseIsSuccessful();
         self::assertContains('ROLE_ADMIN', $this->json()['user']['roles']);
@@ -39,7 +39,7 @@ final class LoginTest extends AuthApiTestCase
 
     public function testWrongPasswordAndUnknownEmailGiveSameError(): void
     {
-        $this->jsonRequest('POST', '/api/auth/login', ['email' => AppFixtures::DEMO_EMAIL, 'password' => 'wrong-password']);
+        $this->jsonRequest('POST', '/api/auth/login', ['email' => DemoData::DEMO_EMAIL, 'password' => 'wrong-password']);
         $wrongPassword = $this->assertProblem(401, 'Неверный email или пароль');
         self::assertNull($this->responseRefreshCookie());
 
