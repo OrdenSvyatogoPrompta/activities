@@ -1,7 +1,7 @@
 # Production-образ фронта: собираем Angular и кладём статику в nginx.
 # Контекст сборки — корень репозитория.
 
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/yarn.lock frontend/.yarnrc.yml ./
 RUN corepack yarn install --immutable
