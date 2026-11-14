@@ -45,6 +45,9 @@ function actionError(err: unknown, target: Target): string {
       <span class="header__title">Модерация</span>
       <div class="header__actions">
         <a class="header__link" routerLink="/personal">Кабинет</a>
+        @if (user(); as user) {
+          <span class="header__user" [title]="user.email">{{ user.name || user.email }}</span>
+        }
         <button class="header__logout" (click)="logout()">Выйти</button>
       </div>
     </header>
@@ -264,6 +267,8 @@ export class AdminDashboardComponent {
   private readonly enrollSvc = inject(EnrollmentsService);
   private readonly auth      = inject(AuthService);
   private readonly router    = inject(Router);
+
+  readonly user = this.auth.user;
 
   readonly activityStatuses      = Object.keys(ACTIVITY_STATUS_LABEL) as ActivityStatus[];
   readonly enrollmentStatuses    = Object.keys(ENROLLMENT_STATUS_LABEL) as EnrollmentStatus[];

@@ -35,6 +35,17 @@
     &:hover { text-decoration: underline; }
   }
 
+  &__user {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    @media (max-width: 560px) { max-width: 110px; }
+  }
+
   &__logout {
     font-size: 13px;
     font-weight: 500;

@@ -43,13 +43,14 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (user()) {
+    @if (user(); as user) {
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
         <div class="header__actions">
           @if (isAdmin()) {
             <a class="header__link" routerLink="/admin">Модерация</a>
           }
+          <span class="header__user" [title]="user.email">{{ user.name || user.email }}</span>
           <button class="header__logout" (click)="logout()">Выйти</button>
         </div>
       </header>
