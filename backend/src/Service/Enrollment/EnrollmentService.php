@@ -84,7 +84,6 @@ final readonly class EnrollmentService
         }
 
         $this->transitions->apply($enrollment, EnrollmentWorkflow::TRANSITION_CANCEL);
-        $this->entityManager->flush();
 
         return $enrollment;
     }

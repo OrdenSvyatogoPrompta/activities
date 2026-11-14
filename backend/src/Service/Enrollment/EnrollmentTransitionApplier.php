@@ -6,6 +6,8 @@ namespace App\Service\Enrollment;
 
 use App\Entity\Enrollment;
 use App\Workflow\EnrollmentWorkflow;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -14,8 +16,8 @@ use Symfony\Component\Workflow\TransitionBlocker;
 use Symfony\Component\Workflow\WorkflowInterface;
 
 /**
- * Применяет переход workflow и переводит отказ в HTTP: нет прав — 403,
- * переход недопустим из текущего статуса — 409. Flush делает вызывающий.
+ * Применяет переход workflow в транзакции и переводит отказ в HTTP: нет прав — 403,
+ * переход недопустим из текущего статуса — 409.
  */
 final readonly class EnrollmentTransitionApplier
 {
@@ -34,15 +36,35 @@ final readonly class EnrollmentTransitionApplier
 
     public function __construct(
         private WorkflowInterface $enrollmentStateMachine,
+        private EntityManagerInterface $entityManager,
     ) {
     }
 
-    public function apply(Enrollment $enrollment, string $transition): void
+    /**
+     * @param (\Closure(Enrollment): void)|null $change дополнительные изменения в той же транзакции
+     */
+    public function apply(Enrollment $enrollment, string $transition, ?\Closure $change = null): void
     {
-        try {
-            $this->enrollmentStateMachine->apply($enrollment, $transition);
-        } catch (NotEnabledTransitionException $e) {
-            throw self::toHttpException($e, $enrollment);
+        // Статус перечитывается под блокировкой строки, чтобы параллельные переходы не затёрли друг друга.
+        // Отказ бросаем после транзакции: исключение внутри wrapInTransaction() закрыло бы EntityManager.
+        $error = $this->entityManager->wrapInTransaction(function () use ($enrollment, $transition, $change): ?HttpException {
+            $this->entityManager->refresh($enrollment, LockMode::PESSIMISTIC_WRITE);
+
+            try {
+                $this->enrollmentStateMachine->apply($enrollment, $transition);
+            } catch (NotEnabledTransitionException $e) {
+                return self::toHttpException($e, $enrollment);
+            }
+
+            if (null !== $change) {
+                $change($enrollment);
+            }
+
+            return null;
+        });
+
+        if (null !== $error) {
+            throw $error;
         }
     }
 
