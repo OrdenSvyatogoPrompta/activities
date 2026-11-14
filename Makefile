@@ -6,7 +6,7 @@ BACKEND_EXEC := $(COMPOSE) exec backend
 FRONTEND_RUN := $(COMPOSE) run --rm --no-deps frontend
 
 .PHONY: install build start stop \
-	backend-deps jwt-keys console \
+	jwt-keys console \
 	db-migration db-migrate db-fixtures db-reset test-db \
 	lint cs-fix typecheck test check
 
@@ -28,17 +28,6 @@ stop:
 
 # ── Бэкенд: пакеты и утилиты ───────────────────────────────────────────
 
-# Разовая установка пакетов из docs/backend-requirements.md (группа A).
-# Flex-рецепты сами создадут конфиги; результат нужно закоммитить.
-backend-deps:
-	$(BACKEND_RUN) composer require \
-		symfony/orm-pack symfony/serializer-pack symfony/validator symfony/security-bundle \
-		symfony/uid symfony/string symfony/workflow symfony/rate-limiter \
-		lexik/jwt-authentication-bundle gesdinet/jwt-refresh-token-bundle
-	$(BACKEND_RUN) composer require --dev \
-		symfony/test-pack doctrine/doctrine-fixtures-bundle dama/doctrine-test-bundle \
-		symfony/maker-bundle friendsofphp/php-cs-fixer
-
 # Ключи JWT для dev (config/jwt/, в git не попадают); существующие не перезаписываются
 jwt-keys:
 	$(BACKEND_RUN) bin/console lexik:jwt:generate-keypair --skip-if-exists
@@ -51,7 +40,7 @@ console:
 
 # Сгенерировать миграцию по изменениям сущностей
 db-migration:
-	$(BACKEND_EXEC) bin/console make:migration --no-interaction
+	$(BACKEND_EXEC) bin/console doctrine:migrations:diff --no-interaction
 
 # Применить миграции к dev-базе
 db-migrate:

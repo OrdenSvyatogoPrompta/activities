@@ -1,4 +1,8 @@
 lexik_jwt_authentication:
+    # dev/test — путь к файлу ключа; prod — сам PEM-ключ: контейнер read-only
     secret_key: '%env(resolve:JWT_SECRET_KEY)%'
     public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
     pass_phrase: '%env(JWT_PASSPHRASE)%'
+
+    # 15 минут
+    token_ttl: 900

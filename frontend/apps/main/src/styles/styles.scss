@@ -28,3 +28,129 @@ body {
   color: var(--color-text);
   background: var(--color-bg);
 }
+
+// Общие элементы — глобально, чтобы не копировать их в стили компонентов
+// (у ЛК близко к бюджету anyComponentStyle).
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--brand-purple-muted);
+  border-top-color: var(--brand-purple);
+  animation: act-spin 0.8s linear infinite;
+}
+
+@keyframes act-spin { to { transform: rotate(360deg); } }
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+
+  &__retry {
+    padding: 8px 18px;
+    border-radius: 10px;
+    border: 1.5px solid var(--brand-purple);
+    background: transparent;
+    color: var(--brand-purple);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    &:hover { background: var(--brand-purple-muted); }
+  }
+}
+
+.inline-error {
+  font-size: 12.5px;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #64748b;
+
+  &--pending   { background: #fef3c7; color: #b45309; }
+  &--confirmed,
+  &--approved  { background: #dcfce7; color: #16a34a; }
+  &--rejected  { background: #fee2e2; color: #dc2626; }
+}
+
+.filter-pill {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover:not(&--active) { border-color: var(--brand-purple); color: var(--brand-purple); }
+
+  &--active {
+    background: var(--brand-purple);
+    color: #fff;
+    border-color: var(--brand-purple);
+  }
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  &:disabled { opacity: 0.6; cursor: progress; }
+
+  &--primary { background: var(--brand-purple); color: #fff; &:hover { background: var(--brand-purple-hover); } }
+  &--danger { background: #ef4444; color: #fff; &:hover { background: #dc2626; } }
+  &--ghost { background: #f1f5f9; color: var(--color-text-secondary); &:hover { background: var(--color-border); } }
+}
+
+.btn-small {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  &:disabled { opacity: 0.6; cursor: progress; }
+
+  &--ok { background: #16a34a; border-color: #16a34a; color: #fff; }
+  &--danger { background: #ef4444; border-color: #ef4444; color: #fff; }
+}
+
+.btn-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--brand-purple);
+  cursor: pointer;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}

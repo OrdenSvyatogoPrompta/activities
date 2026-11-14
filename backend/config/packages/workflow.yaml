@@ -1,2 +1,26 @@
 framework:
-    workflows: null
+    workflows:
+        # Права на переходы — App\Workflow\EnrollmentGuardListener
+        enrollment:
+            type: state_machine
+            marking_store:
+                type: method
+                property: marking # Enrollment::getMarking() / setMarking()
+            supports:
+                - App\Entity\Enrollment
+            initial_marking: pending
+            places:
+                - pending
+                - confirmed
+                - rejected
+                - cancelled
+            transitions:
+                confirm:
+                    from: pending
+                    to: confirmed
+                reject:
+                    from: pending
+                    to: rejected
+                cancel:
+                    from: [pending, confirmed]
+                    to: cancelled

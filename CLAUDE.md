@@ -7,8 +7,8 @@
 или ребёнка. Один аккаунт одновременно может быть и «родителем» (записи, дети), и «организатором»
 (свои активности, входящие записи) — отдельного кабинета организации нет.
 
-Статус: **прототип**. Фронтенд реализован на моках (данные захардкожены в сервисах, состояние живёт
-в памяти и теряется при перезагрузке). Бэкенд — пустой скелет Symfony с одним эндпоинтом `/api/ping`.
+Статус: **прототип**. Фронтенд работает через JSON API бэкенда (JWT), данные — в MySQL.
+Контракт API, доменная модель и открытые вопросы — `docs/backend-requirements.md`.
 
 Продуктовые требования — `Требования к MVP-прототипу «Место встречи» (v2).md` в корне.
 Документ сейчас дорабатывается владельцем, не опираться на него без явной просьбы.
@@ -18,8 +18,8 @@
 | Слой | Технологии |
 |---|---|
 | Фронтенд | Angular 21 (standalone-компоненты, signals, новый control flow `@if/@for`, OnPush), Nx 22, TypeScript 5.9, SCSS, Yarn 4 (corepack), Node 22 |
-| Бэкенд | PHP 8.5 (php-fpm), Symfony 8.1 (только FrameworkBundle, Console, Dotenv, Yaml, Runtime) |
-| БД | MySQL 8.4 (поднята, но бэкендом пока не используется) |
+| Бэкенд | PHP 8.5 (php-fpm), Symfony 8.1: Doctrine ORM + Migrations, Serializer, Validator, Security, Workflow, LexikJWT + gesdinet refresh-token 3.x; PHPUnit, php-cs-fixer |
+| БД | MySQL 8.4 |
 | Инфраструктура | Docker Compose, nginx, Caddy (prod), GitHub Actions → GHCR, Dependabot |
 
 ## Структура
@@ -34,13 +34,13 @@ activities/
 ├── backend/                  # Symfony; код в src/, роуты атрибутами, все под /api
 ├── docker/
 │   ├── default.conf          # nginx для dev
-│   ├── php/Dockerfile        # dev-образ php-fpm + composer
+│   ├── php/Dockerfile        # dev-образ php-fpm (+intl) + composer
 │   └── prod/                 # Dockerfile'ы web/backend, nginx.conf, Caddyfile
 ├── docker-compose.yml        # dev-окружение
 ├── docker-compose.prod.yml   # prod (образы из GHCR, hardening)
 ├── .github/                  # workflow деплоя, dependabot
-├── docs/deploy-checklist.md  # чеклист прод-деплоя
-└── .claude/skills/           # правила проекта: commit, branch
+├── docs/backend-requirements.md  # контракт API, доменная модель, ход работ
+└── .claude/skills/           # правила проекта: commit, branch, code-style
 ```
 
 ## Запуск и команды
@@ -50,15 +50,18 @@ activities/
 ```bash
 make build     # yarn install + composer install + docker compose build + yarn build (в ./public)
 make start     # docker compose up -d --no-build (ничего не собирает)
+make jwt-keys  # dev-ключи JWT (первый запуск)
+make db-reset  # схема + фикстуры в dev-базе
 make stop      # docker compose down (данные MySQL сохраняются)
 make install   # только зависимости
 ```
 
 - Фронт: http://localhost:8080, API: http://localhost:8080/api/ping
-- Консоль Symfony: `docker compose exec backend bin/console ...`
+- Демо-аккаунты из фикстур: `maria@example.com` / `password`, админ `admin@example.com` / `admin`
+- Остальные таргеты (`db-*`, `test-db`, `test`, `lint`, `cs-fix`, `typecheck`, `check`, `console`) — в `README.md`.
 - Composer: `docker compose exec backend composer require <пакет>`
 - MySQL: `docker compose exec mysql mysql -uactivities -pactivities activities`
-- Фронт-скрипты (`frontend/package.json`): `start` (= `nx serve main`), `build`, `typecheck`, `lint`.
+- Фронт-скрипты (`frontend/package.json`): `start` (= `nx serve main`), `build`, `typecheck`.
   Запускать через `docker compose run --rm --no-deps frontend corepack yarn <script>`.
 
 ## Как устроен трафик
@@ -76,49 +79,39 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
 ходить во внешние API, пока это не поменять. Деплой (`.github/workflows/deploy.yml`): каждый push
 в `main` (в т.ч. мерж PR) сразу собирает образы в GHCR, затем задача `deploy` того же запуска ждёт
 ручного подтверждения (кнопка «Review deployments»; ожидание задаётся правилом Required reviewers
-окружения `production`). Повторная выкатка без пересборки — Re-run задачи `deploy`. Миграций в деплое пока нет.
+окружения `production`). Повторная выкатка без пересборки — Re-run задачи `deploy`. Деплой применяет миграции
+(`doctrine:migrations:migrate`) и берёт ключи JWT из секретов окружения `production`
+(`JWT_SECRET_KEY`, `JWT_PUBLIC_KEY` — содержимое PEM, `JWT_PASSPHRASE`). Админа на проде выдаёт
+`bin/console app:user:promote <email> --admin`.
 
 ## Фронтенд (`frontend/apps/main`)
 
-Префикс селекторов `act-`. Алиас импорта `~/*` → `src/app/*`. API-база: `environment.apiUrl = '/api'`
-(пока нигде не используется, `HttpClient` подключён, но запросов нет). `strictNullChecks: false`,
-`strictTemplates: true`.
+Префикс селекторов `act-`. Алиас импорта `~/*` → `src/app/*`. API-база `environment.apiUrl = '/api'`.
+`strictNullChecks: false`, `strictTemplates: true`.
 
 ### Маршруты (`app.routes.ts`, все lazy)
 
 | Путь | Компонент | Что делает |
 |---|---|---|
-| `/` | `home/HomeComponent` | Каталог: поиск, чипы категорий, панель фильтров (цена/Пушкинская карта, возраст, дни недели, формат), сетка карточек. Фильтрация на клиенте |
-| `/club/:id` | `club/ClubComponent` | Карточка кружка: описание, филиалы (табы), контакты, теги; bottom sheet записи (филиал, «для себя»/ребёнок), модалка успеха |
-| `/auth/login`, `/auth/register` | `auth/*` | Формы; оба вызывают мок `AuthService.login()` и ведут в `/personal` |
-| `/personal` | `personal/PersonalDashboardComponent` | Единый ЛК, 3 вкладки: **Мои записи** (список с фильтром по ребёнку + календарь месяца), **Активности** (свои кружки, детализация по филиалам с входящими записями, форма создания), **Дети** (список, добавление/удаление) |
+| `/` | `home/HomeComponent` | Каталог: поиск, чипы категорий, панель фильтров (цена/Пушкинская карта, возраст, дни недели, формат), сетка карточек. Фильтрация на клиенте по полному списку |
+| `/club/:id` | `club/ClubComponent` | Карточка кружка (`id` = slug): описание, филиалы, контакты; окно записи (филиал, «для себя»/ребёнок) → заявка `pending` |
+| `/auth/login`, `/auth/register` | `auth/*` | Вход и регистрация через API, после — `returnUrl` или `/personal` |
+| `/personal` | `personal/PersonalDashboardComponent` (`authGuard`) | ЛК, 3 вкладки: **Мои записи** (список с фильтром по участнику + календарь с листанием месяцев), **Активности** (свои, статус модерации, входящие заявки по филиалам, форма создания), **Дети** (добавление, правка, удаление) |
+| `/admin` | `admin/AdminDashboardComponent` (`adminGuard`) | Модерация: одобрение/отклонение активностей, заявки в кружки без владельца, снятие с публикации |
 | `/org` | — | редирект на `/personal` |
 
 `org/OrgDashboardComponent` в `main` не подключён к роутам (остаток).
 
-### Данные и сервисы (моки)
+### HTTP-слой и сервисы
 
-- `services/clubs.service.ts` — `ClubsService.getAll()/getById()` над массивом `CLUBS` (~18 кружков).
-- `services/auth.service.ts` — `AuthService` со signal `user`; `MOCK_USER` с детьми, записями и одной
-  активностью. Методы: `login` (любой email/пароль, имя = часть email до `@`), `logout`, `addChild`,
-  `removeChild`, `enroll`, `cancelEnrollment`, `addActivity`. Всё синхронно, в памяти.
-- `models/club.model.ts` — `Club`, `Branch`, `ClubCategory` (`Спорт|Творчество|Наука|Музыка|Танцы`),
-  `PriceType` (`free|pushkin|paid`), `VisitType` (`recurring|oneTime|both`), `DayOfWeek` (`Пн`…`Вс`).
-- В `auth.service.ts` — `AuthUser`, `Child`, `Enrollment`, `ManagedActivity`, `ActivityBranch`, `IncomingEnrollment`.
-- `utils/illustrations.ts` — генерация SVG-обложек по категории и цвету.
-
-### Особенности моделей, важные при подключении API
-
-- **Каталог (`Club`) и «свои активности» (`ManagedActivity`) — две несвязанные модели.**
-  Созданная в ЛК активность не появляется в каталоге; поля различаются (`categories[]` vs `category`,
-  `schedule`-строка vs `days + timeFrom/timeTo`).
-- Расписание дублируется: человекочитаемая строка `schedule` + массив `days` для фильтров/календаря.
-- `Enrollment` денормализован (хранит `clubName`, `branchName`, `schedule`, `color`, копию `Child`).
-- `IncomingEnrollment` привязан к филиалу по **имени** (`branchName`), не по id.
-- Цена: строка для отображения `price` + число `priceAmount` + `priceType`.
-- Id — строки (у кружков — slug, например `swimming-dyush`).
-- Регистрация игнорирует поле «Имя»; защиты маршрутов (guards) нет — ЛК сам проверяет `user()`.
-- Календарь строится только на текущий месяц, по дням недели из `Enrollment.days`.
+- `api/api-client.ts` — обёртка `HttpClient` (`withCredentials` для refresh-cookie); `api/auth.interceptor.ts` —
+  Bearer, на `401` один `POST /auth/refresh` и повтор, при неудаче выход; `api/api-error.ts` — разбор problem+json
+  и `violations` в ошибки полей.
+- `AuthService` — access-токен в памяти, тихий refresh при старте, `user`, `isAdmin`.
+- `ClubsService`, `EnrollmentsService`, `ChildrenService`, `ActivitiesService`, `AdminService`; списки грузятся
+  через общий `services/remote-list.ts` (`RemoteList<T>`) и сбрасываются при выходе.
+- Модели — `models/*.model.ts`, совпадают с JSON API (перечисления на русском, как в API).
+- `utils/format.ts` (склонение «лет», даты), `utils/illustrations.ts` (SVG-обложки по категории и цвету).
 
 ### Стили
 
@@ -127,23 +120,34 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
 
 ## Бэкенд (`backend`)
 
-- Только `src/Kernel.php` и `src/Controller/PingController.php` (`GET /api/ping`).
-- Не установлены: Doctrine ORM/Migrations, Serializer, Validator, Security. `DATABASE_URL` задан в
-  окружении, но не используется.
-- Обязательно прочитать `backend/AGENTS.md` — соглашения: ставить компоненты через
-  `composer require` (Flex-рецепты, не править `bundles.php` руками), роуты атрибутами,
-  тонкие контроллеры, `#[MapRequestPayload]`/`#[MapQueryString]`, readonly DTO, схема БД только через
-  миграции, функциональные тесты на `WebTestCase`, стиль `@Symfony`.
-- Все роуты должны начинаться с `/api` (так настроен nginx).
+- Обязательно прочитать `backend/AGENTS.md` — соглашения: компоненты через `composer require`
+  (Flex-рецепты, не править `bundles.php` руками), роуты атрибутами, тонкие контроллеры,
+  `#[MapRequestPayload]`/`#[MapQueryString]`, readonly DTO, схема БД только через миграции, стиль `@Symfony`.
+- Все роуты под `/api` (так настроен nginx). Код разложен по ресурсам: `Controller|Dto|Service/<Ресурс>`
+  (`Auth`, `Catalog`, `Children`, `Enrollment`, `Activity`, `Admin`).
+- Сущности: `User`, `Child`, `Club` (каталог, `id` в API = slug), `Branch`, `ScheduleSlot`, `Activity`
+  (заявка организатора, после одобрения админом становится `Club`), `ActivityBranch`, `Enrollment`, `RefreshToken`.
+  UUID v7. Схема — одна миграция в `migrations/`.
+- Заявка на запись — state machine `enrollment` (`pending → confirmed|rejected|cancelled`, `confirmed → cancelled`);
+  права — `Security/Voter/EnrollmentVoter` (подтверждает владелец кружка или `ROLE_ADMIN`, отменяет автор).
+- Auth: JWT access 15 мин в `Authorization: Bearer`, refresh 30 дней в HttpOnly cookie (`Path=/api/auth`, single-use).
+  Публичны `/api/auth/{register,login,refresh}`, `GET /api/clubs*`, `/api/dictionaries`, `/api/ping`; `/api/admin/*` — `ROLE_ADMIN`.
+- Ошибки — `application/problem+json` (`src/Http/Problem`), тексты на русском; `#[Assert]` — с русским `message:`
+  (`symfony/translation` не установлен).
+- Поля для показа (`price`, `age`, `schedule`) формирует сервер (`Service/Formatter`).
+- Фикстуры (`DataFixtures`, dev/test): 18 сидовых кружков без владельца + кружок `akvarel` демо-пользователя,
+  демо-пользователь с детьми и заявками, заявители, админ.
 
 ## Тесты и линт
 
-Тестов нет ни на фронте, ни на бэке. В `nx.json` подключён плагин `@nx/eslint`, но конфигурации
-ESLint в репозитории нет — `yarn lint` фактически не настроен. Рабочая проверка фронта — `yarn typecheck`
-и `yarn build`.
+- Бэкенд: `tests/Unit` (без БД) и `tests/Functional` (`WebTestCase`, общий `ApiTestCase`, нужна `make test-db`;
+  DAMA откатывает транзакции). Статика — `make lint`.
+- Фронт: тестов нет; ESLint не настроен (`@nx/eslint` подключён, конфигурации нет). Проверка — `yarn typecheck`
+  и `yarn build` (бюджет стилей компонента — 16 kB).
 
 ## Правила работы в репозитории
 
+- Код: скилл `.claude/skills/code-style` — лаконичные комментарии, без одноразового и дублирующегося кода.
 - Git: см. скиллы `.claude/skills/commit` и `.claude/skills/branch`.
   Кратко: не коммитить в `main`, ветки `<type>/<kebab-case>`, Conventional Commits,
   **сообщения на русском в прошедшем времени от первого лица** («добавил…»),
@@ -157,4 +161,7 @@ ESLint в репозитории нет — `yarn lint` фактически н�
 - `apps/personal` и `apps/org` — устаревшие заглушки, не собираются `yarn build`, но под них есть
   location'ы в dev-nginx (`/personal/`, `/org/`). Актуальный ЛК — маршрут `/personal` в `main`.
 - `quickAge`/`selectQuickAge` в `HomeComponent` есть в логике, но не выведены в UI.
-- Нет HTTP-слоя: при подключении бэкенда сервисы нужно перевести на `HttpClient` и асинхронность.
+- Функциональные тесты бэкенда в CI не гоняются.
+- Дубль активной заявки защищён только в приложении (блокировка строки пользователя), не индексом БД.
+- Удаление ребёнка каскадно удаляет историю его заявок (`ON DELETE CASCADE`).
+- Остальные открытые вопросы — раздел «Открытые вопросы» в `docs/backend-requirements.md`.

@@ -6,6 +6,7 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 32px;
   height: 52px;
   background: var(--color-surface);
@@ -215,6 +216,7 @@
 }
 
 .cta-section {
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -316,6 +318,8 @@
   padding: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, .18);
   position: relative;
+  max-height: 100%;
+  overflow-y: auto;
 
   &__handle { display: none; }
 
@@ -475,4 +479,8 @@
     color: #fff;
     border-color: var(--brand-purple);
   }
+}
+
+.sheet__error {
+  margin-bottom: 14px;
 }

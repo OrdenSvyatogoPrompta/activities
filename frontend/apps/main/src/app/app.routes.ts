@@ -1,5 +1,8 @@
 import { Routes } from '@angular/router';
 
+import { adminGuard } from './auth/admin.guard';
+import { authGuard } from './auth/auth.guard';
+
 export const routes: Routes = [
   {
     path: '',
@@ -19,7 +22,13 @@ export const routes: Routes = [
   },
   {
     path: 'personal',
+    canActivate: [authGuard],
     loadComponent: () => import('./personal/personal-dashboard.component').then((m) => m.PersonalDashboardComponent),
+  },
+  {
+    path: 'admin',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./admin/admin-dashboard.component').then((m) => m.AdminDashboardComponent),
   },
   // /org редиректит в /personal — один аккаунт для всех
   { path: 'org', redirectTo: 'personal' },

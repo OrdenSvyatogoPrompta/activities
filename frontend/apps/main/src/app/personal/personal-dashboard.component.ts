@@ -1,150 +1,192 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
-import { ActivityBranch, AuthService, ManagedActivity } from '../services/auth.service';
+import { toApiError } from '../api/api-error';
+import { ACTIVITY_STATUS_LABEL, Activity, IncomingEnrollment } from '../models/activity.model';
+import { DayOfWeek, VISIT_TYPE_LABEL, WEEK_DAYS } from '../models/club.model';
+import { ENROLLMENT_STATUS_LABEL, Enrollment, isActiveEnrollment } from '../models/enrollment.model';
+import { Child } from '../models/user.model';
+import { ActivitiesService } from '../services/activities.service';
+import { AuthService } from '../services/auth.service';
+import { ChildrenService } from '../services/children.service';
+import { EnrollmentsService } from '../services/enrollments.service';
+import { RemoteList } from '../services/remote-list';
+import { formatDate, yearsLabel } from '../utils/format';
+import { ActivityFormComponent } from './activity-form.component';
+import { ChildFormComponent } from './child-form.component';
+import { ProfileNameComponent } from './profile-name.component';
 
 type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
 
-const DAY_NAMES = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-const DAY_HEADERS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const CATEGORIES = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
+interface CalendarEvent {
+  who: string;
+  label: string;
+  title: string;
+  color: string;
+  pending: boolean;
+}
+
+const MAX_DAY_EVENTS = 2;
+
+interface IncomingByBranch {
+  byBranch: Record<string, IncomingEnrollment[]>;
+  other: IncomingEnrollment[];
+}
+
+/** Индекс — `Date.getDay()`. */
+const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 @Component({
   selector: 'act-personal-dashboard',
-  imports: [RouterLink],
+  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, ProfileNameComponent],
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (user(); as user) {
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
-        <button class="header__logout" (click)="logout()">Выйти</button>
+        <div class="header__actions">
+          @if (isAdmin()) {
+            <a class="header__link" routerLink="/admin">Модерация</a>
+          }
+          <button class="header__logout" (click)="logout()">Выйти</button>
+        </div>
       </header>
 
       <div class="hero">
         <div class="hero__top">
-          <div class="hero__avatar">{{ user.name[0].toUpperCase() }}</div>
+          <div class="hero__avatar">{{ (user.name || user.email)[0].toUpperCase() }}</div>
           <div class="hero__info">
-            <p class="hero__name">{{ user.name }}</p>
+            <act-profile-name />
             <p class="hero__email">{{ user.email }}</p>
-          </div>
-        </div>
-        <div class="hero__stats">
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ user.enrollments.length }}</span>
-            <span class="hero__stat-label">записей</span>
-          </div>
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ user.activities.length }}</span>
-            <span class="hero__stat-label">активностей</span>
-          </div>
-          <div class="hero__stat">
-            <span class="hero__stat-num">{{ user.children.length }}</span>
-            <span class="hero__stat-label">детей</span>
           </div>
         </div>
       </div>
 
       <div class="tabs">
         <button class="tab" [class.tab--active]="tab() === 'enrollments'" (click)="tab.set('enrollments')">
-          Мои записи <span class="tab__count">{{ user.enrollments.length }}</span>
+          Мои записи <span class="tab__count">{{ stats().enrollments }}</span>
         </button>
         <button class="tab" [class.tab--active]="tab() === 'activities'" (click)="tab.set('activities')">
-          Активности <span class="tab__count">{{ user.activities.length }}</span>
+          Активности <span class="tab__count">{{ stats().activities }}</span>
         </button>
         <button class="tab" [class.tab--active]="tab() === 'children'" (click)="tab.set('children')">
-          Дети <span class="tab__count">{{ user.children.length }}</span>
+          Дети <span class="tab__count">{{ stats().children }}</span>
         </button>
       </div>
 
       <div class="content">
 
-        <!-- ── Мои записи ── -->
         @if (tab() === 'enrollments') {
-          <div class="view-toggle">
-            <button class="vtog" [class.vtog--active]="enrollView() === 'list'" (click)="enrollView.set('list')">Список</button>
-            <button class="vtog" [class.vtog--active]="enrollView() === 'calendar'" (click)="enrollView.set('calendar')">Календарь</button>
-          </div>
+          @if (enrollments.status() === 'loading' && enrollments.items().length === 0) {
+            <div class="state"><div class="spinner"></div></div>
+          } @else if (enrollments.status() === 'error') {
+            <div class="state">
+              <span>{{ enrollments.error() }}</span>
+              <button class="state__retry" (click)="enrollments.load(true)">Повторить</button>
+            </div>
+          } @else {
+            <div class="view-toggle">
+              <button class="vtog" [class.vtog--active]="enrollView() === 'list'" (click)="enrollView.set('list')">Список</button>
+              <button class="vtog" [class.vtog--active]="enrollView() === 'calendar'" (click)="enrollView.set('calendar')">Календарь</button>
+            </div>
 
-          @if (enrollView() === 'calendar') {
-            <div class="cal">
-              <div class="cal__month">{{ calendarDays().monthLabel }}</div>
-              <div class="cal__grid">
-                @for (h of dayHeaders; track h) { <div class="cal__head">{{ h }}</div> }
-                @for (day of calendarDays().days; track $index) {
-                  <div class="cal__day" [class.cal__day--today]="day.date === today">
-                    @if (day.date) {
-                      <span class="cal__num">{{ day.date }}</span>
-                      @if (day.dots.length > 0) {
-                        <div class="cal__dots">
-                          @for (color of day.dots; track color) {
-                            <span class="cal__dot" [style.background]="color"></span>
-                          }
-                        </div>
+            @if (enrollView() === 'calendar') {
+              <div class="cal">
+                <div class="cal__nav">
+                  <button class="cal__arrow" aria-label="Предыдущий месяц" (click)="monthOffset.update(m => m - 1)">‹</button>
+                  <span class="cal__month">{{ calendarDays().monthLabel }}</span>
+                  <button class="cal__arrow" aria-label="Следующий месяц" (click)="monthOffset.update(m => m + 1)">›</button>
+                  @if (monthOffset() !== 0) {
+                    <button class="btn-link cal__today" (click)="monthOffset.set(0)">Сегодня</button>
+                  }
+                </div>
+                <div class="cal__grid">
+                  @for (h of weekDays; track h) { <div class="cal__head">{{ h }}</div> }
+                  @for (day of calendarDays().days; track $index) {
+                    <div class="cal__day" [class.cal__day--today]="day.today">
+                      @if (day.date) {
+                        <span class="cal__num">{{ day.date }}</span>
+                        @for (ev of day.events.slice(0, maxDayEvents); track $index) {
+                          <span class="cal__event" [class.cal__event--pending]="ev.pending"
+                            [style.background]="ev.color" [title]="ev.title"><span class="cal__who">{{ ev.who }}</span>{{ ev.label }}</span>
+                        }
+                        @if (day.events.length > maxDayEvents) {
+                          <span class="cal__more">+{{ day.events.length - maxDayEvents }}</span>
+                        }
                       }
+                    </div>
+                  }
+                </div>
+                <div class="cal__legend">
+                  @for (e of activeEnrollments(); track e.id) {
+                    <div class="cal__legend-item">
+                      <span class="cal__dot" [class.cal__dot--pending]="e.status === 'pending'" [style.background]="e.color"></span>
+                      <span>{{ e.clubName }} — {{ participantName(e) }}{{ e.status === 'pending' ? ' · на рассмотрении' : '' }}</span>
+                    </div>
+                  }
+                  @if (activeEnrollments().length === 0) {
+                    <p class="ie-empty">Подтверждённых записей пока нет</p>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (enrollView() === 'list') {
+              @if (children.items().length > 0) {
+                <div class="child-filter">
+                  <button class="filter-pill" [class.filter-pill--active]="childFilter() === null" (click)="childFilter.set(null)">Все</button>
+                  <button class="filter-pill" [class.filter-pill--active]="childFilter() === 'self'" (click)="childFilter.set('self')">Я</button>
+                  @for (child of children.items(); track child.id) {
+                    <button class="filter-pill" [class.filter-pill--active]="childFilter() === child.id" (click)="childFilter.set(child.id)">{{ child.firstName }}</button>
+                  }
+                </div>
+              }
+              @if (filteredEnrollments().length === 0) {
+                <div class="empty">
+                  <div class="empty__icon">📋</div>
+                  <div class="empty__title">Записей пока нет</div>
+                  <div class="empty__sub">Найдите активность и запишитесь</div>
+                  <a routerLink="/" class="empty__link">Смотреть активности</a>
+                </div>
+              } @else {
+                @for (e of filteredEnrollments(); track e.id) {
+                  <div class="enrollment-card" [class.enrollment-card--muted]="e.status === 'rejected'">
+                    <div class="enrollment-card__accent">🎯</div>
+                    <div class="enrollment-card__body">
+                      <p class="enrollment-card__name">{{ e.clubName }}</p>
+                      <p class="enrollment-card__meta">@if (e.branchName) { {{ e.branchName }} · }{{ e.schedule }}</p>
+                      <div class="enrollment-card__tags">
+                        <span [class]="'status-badge status-badge--' + e.status">{{ enrollmentStatusLabel[e.status] }}</span>
+                        @if (e.forChild) {
+                          <span class="etag etag--child">{{ e.forChild.gender === 'male' ? '👦' : '👧' }} {{ e.forChild.firstName }}</span>
+                        } @else {
+                          <span class="etag">Для себя</span>
+                        }
+                        <span class="etag etag--date">с {{ formatDate(e.enrolledAt) }}</span>
+                      </div>
+                      @if (e.status === 'rejected' && e.rejectReason) {
+                        <p class="note">Причина: {{ e.rejectReason }}</p>
+                      }
+                      @if (itemErrors()[e.id]; as msg) { <p class="inline-error item-error">{{ msg }}</p> }
+                    </div>
+                    @if (canCancel(e)) {
+                      <button class="enrollment-card__cancel" title="Отменить запись"
+                        [disabled]="busyId() === e.id" (click)="cancelEnrollment(e)">✕</button>
                     }
                   </div>
                 }
-              </div>
-              <div class="cal__legend">
-                @for (e of user.enrollments; track e.id) {
-                  <div class="cal__legend-item">
-                    <span class="cal__dot" [style.background]="e.color"></span>
-                    <span>{{ e.clubName }}</span>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          @if (enrollView() === 'list') {
-            @if (user.children.length > 0) {
-              <div class="child-filter">
-                <button class="filter-pill" [class.filter-pill--active]="childFilter() === null" (click)="childFilter.set(null)">Все</button>
-                <button class="filter-pill" [class.filter-pill--active]="childFilter() === 'self'" (click)="childFilter.set('self')">Я</button>
-                @for (child of user.children; track child.id) {
-                  <button class="filter-pill" [class.filter-pill--active]="childFilter() === child.id" (click)="childFilter.set(child.id)">{{ child.firstName }}</button>
-                }
-              </div>
-            }
-            @if (filteredEnrollments().length === 0) {
-              <div class="empty">
-                <div class="empty__icon">📋</div>
-                <div class="empty__title">Записей пока нет</div>
-                <div class="empty__sub">Найдите активность и запишитесь</div>
-                <a routerLink="/" class="empty__link">Смотреть активности</a>
-              </div>
-            } @else {
-              @for (e of filteredEnrollments(); track e.id) {
-                <div class="enrollment-card">
-                  <div class="enrollment-card__accent">🎯</div>
-                  <div class="enrollment-card__body">
-                    <p class="enrollment-card__name">{{ e.clubName }}</p>
-                    <p class="enrollment-card__meta">{{ e.branchName }} · {{ e.schedule }}</p>
-                    <div class="enrollment-card__tags">
-                      @if (e.forChild) {
-                        <span class="etag etag--child">{{ e.forChild.gender === 'male' ? '👦' : '👧' }} {{ e.forChild.firstName }}</span>
-                      } @else {
-                        <span class="etag">Для себя</span>
-                      }
-                      <span class="etag etag--date">с {{ e.enrolledAt }}</span>
-                    </div>
-                  </div>
-                  <button class="enrollment-card__cancel" (click)="cancelEnrollment(e.id)">✕</button>
-                </div>
               }
             }
           }
         }
 
-        <!-- ── Активности ── -->
         @if (tab() === 'activities') {
 
-          <!-- Детальный просмотр активности -->
           @if (selectedActivity(); as act) {
-            <button class="back-btn" (click)="selectedActivity.set(null)">← Все активности</button>
+            <button class="btn-link back-btn" (click)="selectActivity(null)">← Все активности</button>
 
             <div class="act-detail">
               <div class="act-detail__header">
@@ -158,288 +200,392 @@ const CATEGORIES = ['Спорт', 'Творчество', 'Наука', 'Муз�
                   <span class="act-detail__label">записей</span>
                 </div>
               </div>
+              <div class="act-detail__status">
+                <span [class]="'status-badge status-badge--' + act.status">{{ activityStatusLabel[act.status] }}</span>
+                @if (act.clubId) {
+                  <a class="act-detail__link" [routerLink]="['/club', act.clubId]">Открыть в каталоге →</a>
+                }
+              </div>
+              @if (act.status === 'rejected' && act.moderationComment) {
+                <p class="note">Комментарий модератора: {{ act.moderationComment }}</p>
+              }
+              <p class="act-detail__meta">
+                {{ act.age }} · {{ visitTypeLabel[act.visitType] }} · {{ act.price }}{{ act.priceType === 'pushkin' ? ' · Пушкинская карта' : '' }}
+              </p>
               @if (act.description) {
                 <p class="act-detail__desc">{{ act.description }}</p>
               }
             </div>
 
+            <p class="section-title incoming-title">Филиалы и заявки</p>
+            @if (act.status !== 'approved') {
+              <p class="ie-empty incoming-note">Заявки появятся после публикации активности</p>
+            }
             @for (branch of act.branches; track branch.id) {
               <div class="branch-block">
                 <div class="branch-block__head">
                   <span class="branch-block__name">📍 {{ branch.name }}</span>
                   <span class="branch-block__addr">{{ branch.address }}</span>
                 </div>
-                <div class="branch-block__sched">{{ branch.days.join(', ') }} · {{ branch.timeFrom }}–{{ branch.timeTo }}</div>
-                <div class="branch-block__enrolls">
-                  @for (ie of branchEnrollments(act, branch.name); track ie.id) {
-                    <div class="ie-row">
-                      <span class="ie-row__name">{{ ie.personName }}</span>
-                      @if (ie.childName) { <span class="ie-row__child">👶 {{ ie.childName }}</span> }
-                      <span class="ie-row__date">{{ ie.enrolledAt }}</span>
-                    </div>
-                  }
-                  @if (branchEnrollments(act, branch.name).length === 0) {
-                    <p class="ie-empty">Нет записей в этот филиал</p>
-                  }
-                </div>
+                @if (branch.phone) {
+                  <div class="branch-block__sched">📞 {{ branch.phone }}</div>
+                }
+                <div class="branch-block__sched">{{ branch.schedule }}</div>
+                @if (act.status === 'approved') {
+                  <ng-container
+                    *ngTemplateOutlet="incomingList; context: { $implicit: incoming().byBranch[branch.id] ?? [] }" />
+                }
               </div>
             }
+            @if (incoming().other.length > 0) {
+              <div class="branch-block">
+                <div class="branch-block__head">
+                  <span class="branch-block__name">Прочие</span>
+                </div>
+                <ng-container *ngTemplateOutlet="incomingList; context: { $implicit: incoming().other, showBranch: true }" />
+              </div>
+            }
+
+            <ng-template #incomingList let-items let-showBranch="showBranch">
+              <div class="branch-block__enrolls">
+                @for (ie of $any(items); track ie.id) {
+                  <div class="ie-row">
+                    <span class="ie-row__name">{{ ie.personName }}</span>
+                    @if (ie.childName) { <span class="ie-row__child">👶 {{ ie.childName }}</span> }
+                    @if (showBranch && ie.branchName) { <span class="ie-row__child">📍 {{ ie.branchName }}</span> }
+                    <span class="ie-row__date">{{ formatDate(ie.enrolledAt) }}</span>
+                    <span [class]="'status-badge status-badge--' + ie.status">{{ enrollmentStatusLabel[ie.status] }}</span>
+                  </div>
+                  @if (ie.status === 'pending') {
+                    @if (rejectingId() === ie.id) {
+                      <div class="ie-actions">
+                        <input class="ie-actions__input" type="text" placeholder="Причина отказа (необязательно)" maxlength="500"
+                          [value]="rejectReason()" (input)="rejectReason.set($any($event.target).value)" />
+                        <button class="btn-small btn-small--danger" [disabled]="busyId() === ie.id" (click)="submitReject(ie)">Отклонить</button>
+                        <button class="btn-small" [disabled]="busyId() === ie.id" (click)="rejectingId.set(null)">Отмена</button>
+                      </div>
+                    } @else {
+                      <div class="ie-actions">
+                        <button class="btn-small btn-small--ok" [disabled]="busyId() === ie.id" (click)="confirmIncoming(ie)">Подтвердить</button>
+                        <button class="btn-small" [disabled]="busyId() === ie.id" (click)="startReject(ie)">Отклонить</button>
+                      </div>
+                    }
+                  }
+                  @if (itemErrors()[ie.id]; as msg) { <p class="inline-error">{{ msg }}</p> }
+                } @empty {
+                  <p class="ie-empty">Пока нет заявок</p>
+                }
+              </div>
+            </ng-template>
           }
 
-          <!-- Список активностей / форма создания -->
           @if (!selectedActivity()) {
             @if (showCreateForm()) {
-              <div class="add-form">
-                <p class="form-title">Новая активность</p>
-
-                <div class="form-row">
-                  <div class="field">
-                    <label class="field__label">Название</label>
-                    <input class="field__input" type="text" placeholder="Название активности"
-                      [value]="newName()" (input)="newName.set($any($event.target).value)" />
-                  </div>
-                  <div class="field field--narrow">
-                    <label class="field__label">Эмодзи</label>
-                    <input class="field__input" type="text" placeholder="🎨"
-                      [value]="newEmoji()" (input)="newEmoji.set($any($event.target).value)" />
-                  </div>
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Категория</label>
-                  <select class="field__input field__select"
-                    [value]="newCategory()" (change)="newCategory.set($any($event.target).value)">
-                    <option value="" disabled>Выберите категорию</option>
-                    @for (cat of categories; track cat) {
-                      <option [value]="cat">{{ cat }}</option>
-                    }
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label class="field__label">Описание</label>
-                  <textarea class="field__input field__textarea" placeholder="Расскажите об активности..."
-                    [value]="newDescription()" (input)="newDescription.set($any($event.target).value)"></textarea>
-                </div>
-
-                <!-- Основной филиал -->
-                <div class="branch-form">
-                  <p class="branch-form__title">Основной филиал</p>
-                  <div class="field">
-                    <label class="field__label">Адрес</label>
-                    <input class="field__input" type="text" placeholder="ул. Примерная, 1"
-                      [value]="branchAddress()" (input)="branchAddress.set($any($event.target).value)" />
-                  </div>
-                  <div class="field">
-                    <label class="field__label">Дни занятий</label>
-                    <div class="day-picker">
-                      @for (d of weekDays; track d) {
-                        <button class="day-btn" [class.day-btn--active]="branchDays().includes(d)"
-                          (click)="toggleBranchDay(d)">{{ d }}</button>
-                      }
-                    </div>
-                  </div>
-                  <div class="form-row">
-                    <div class="field">
-                      <label class="field__label">Начало</label>
-                      <input class="field__input" type="time" [value]="branchTimeFrom()"
-                        (change)="branchTimeFrom.set($any($event.target).value)" />
-                    </div>
-                    <div class="field">
-                      <label class="field__label">Конец</label>
-                      <input class="field__input" type="time" [value]="branchTimeTo()"
-                        (change)="branchTimeTo.set($any($event.target).value)" />
-                    </div>
-                  </div>
-                </div>
-
-                <div class="form-actions">
-                  <button class="btn-primary" (click)="createActivity()">Создать активность</button>
-                  <button class="btn-ghost" (click)="showCreateForm.set(false)">Отмена</button>
-                </div>
-              </div>
+              <act-activity-form (created)="showCreateForm.set(false)" (cancelled)="showCreateForm.set(false)" />
             } @else {
-              @for (a of user.activities; track a.id) {
-                <div class="activity-card" (click)="selectedActivity.set(a)">
-                  <div class="activity-card__icon">{{ a.emoji }}</div>
-                  <div>
-                    <p class="activity-card__name">{{ a.name }}</p>
-                    <p class="activity-card__category">{{ a.category }}</p>
-                  </div>
-                  <div class="activity-card__count">
-                    <span class="activity-card__count-num">{{ a.enrollments.length }}</span>
-                    <span class="activity-card__count-label">записей</span>
-                  </div>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                    fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m9 18 6-6-6-6"/>
-                  </svg>
+              @if (activities.status() === 'loading' && activities.items().length === 0) {
+                <div class="state"><div class="spinner"></div></div>
+              } @else if (activities.status() === 'error') {
+                <div class="state">
+                  <span>{{ activities.error() }}</span>
+                  <button class="state__retry" (click)="activities.load(true)">Повторить</button>
                 </div>
+              } @else {
+                @for (a of activities.items(); track a.id) {
+                  <div class="activity-card" (click)="selectActivity(a)">
+                    <div class="activity-card__icon">{{ a.emoji }}</div>
+                    <div>
+                      <p class="activity-card__name">{{ a.name }}</p>
+                      <p class="activity-card__category">{{ a.category }} · {{ a.age }} · {{ a.price }}</p>
+                      <span [class]="'status-badge status-badge--' + a.status">{{ activityStatusLabel[a.status] }}</span>
+                    </div>
+                    <div class="activity-card__count">
+                      <span class="activity-card__count-num">{{ a.enrollments.length }}</span>
+                      <span class="activity-card__count-label">записей</span>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                      fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                  </div>
+                }
+                @if (activities.items().length === 0) {
+                  <div class="empty">
+                    <div class="empty__icon">🎯</div>
+                    <div class="empty__title">Нет активностей</div>
+                    <div class="empty__sub">Создайте свою секцию или кружок</div>
+                  </div>
+                }
+                <button class="btn-create" (click)="showCreateForm.set(true)">+ Создать активность</button>
               }
-              @if (user.activities.length === 0) {
-                <div class="empty">
-                  <div class="empty__icon">🎯</div>
-                  <div class="empty__title">Нет активностей</div>
-                  <div class="empty__sub">Создайте свою секцию или кружок</div>
-                </div>
-              }
-              <button class="btn-create" (click)="showCreateForm.set(true)">+ Создать активность</button>
             }
           }
         }
 
-        <!-- ── Дети ── -->
         @if (tab() === 'children') {
-          @for (child of user.children; track child.id) {
-            <div class="child-card">
-              <div class="child-card__avatar">{{ child.gender === 'male' ? '👦' : '👧' }}</div>
-              <div>
-                <p class="child-card__name">{{ child.firstName }} {{ child.lastName }}</p>
-                <p class="child-card__age">{{ child.age }} лет</p>
-              </div>
-              <button class="child-card__remove" (click)="removeChild(child.id)">✕</button>
+          @if (children.status() === 'loading' && children.items().length === 0) {
+            <div class="state"><div class="spinner"></div></div>
+          } @else if (children.status() === 'error') {
+            <div class="state">
+              <span>{{ children.error() }}</span>
+              <button class="state__retry" (click)="children.load(true)">Повторить</button>
             </div>
           }
 
-          <div class="add-form">
-            <p class="form-title">Добавить ребёнка</p>
-            <div class="form-row">
-              <div class="field">
-                <label class="field__label">Имя</label>
-                <input class="field__input" type="text" placeholder="Артём"
-                  [value]="childFirstName()" (input)="childFirstName.set($any($event.target).value)" />
-              </div>
-              <div class="field">
-                <label class="field__label">Фамилия</label>
-                <input class="field__input" type="text" placeholder="Иванов"
-                  [value]="childLastName()" (input)="childLastName.set($any($event.target).value)" />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="field field--narrow">
-                <label class="field__label">Возраст</label>
-                <input class="field__input field__input--no-spin" type="number" min="1" max="18" placeholder="8"
-                  [value]="childAge() || ''" (input)="childAge.set(+$any($event.target).value)" />
-              </div>
-              <div class="field">
-                <label class="field__label">Пол</label>
-                <div class="gender-row">
-                  <button class="filter-pill" [class.filter-pill--active]="childGender() === 'male'"
-                    (click)="childGender.set('male')">👦 Мальчик</button>
-                  <button class="filter-pill" [class.filter-pill--active]="childGender() === 'female'"
-                    (click)="childGender.set('female')">👧 Девочка</button>
+          @for (child of children.items(); track child.id) {
+            @if (editingChildId() === child.id) {
+              <act-child-form [child]="child" (saved)="onChildSaved($event)" (cancelled)="editingChildId.set(null)" />
+            } @else {
+              <div class="child-card">
+                <div class="child-card__avatar">{{ child.gender === 'male' ? '👦' : '👧' }}</div>
+                <div>
+                  <p class="child-card__name">{{ child.firstName }} {{ child.lastName }}</p>
+                  <p class="child-card__age">{{ child.age }} {{ yearsLabel(child.age) }}</p>
+                  @if (itemErrors()[child.id]; as msg) { <p class="inline-error item-error">{{ msg }}</p> }
                 </div>
+                <button class="child-card__btn child-card__btn--edit" title="Изменить" aria-label="Изменить"
+                  [disabled]="busyId() === child.id" (click)="editChild(child.id)">✎</button>
+                <button class="child-card__btn" title="Удалить" aria-label="Удалить" [disabled]="busyId() === child.id"
+                  (click)="removeChild(child.id)">✕</button>
               </div>
-            </div>
-            <button class="btn-add-child" (click)="addChild()">Добавить</button>
-          </div>
+            }
+          }
+
+          <act-child-form />
+
         }
 
-      </div>
-    } @else {
-      <div class="unauth">
-        <p class="unauth__text">Необходимо войти в аккаунт</p>
-        <a routerLink="/auth/login" class="unauth__link">Войти</a>
       </div>
     }
   `,
 })
 export class PersonalDashboardComponent {
   private readonly authService = inject(AuthService);
+  private readonly router      = inject(Router);
+  private readonly enrollmentsService = inject(EnrollmentsService);
+  private readonly childrenService    = inject(ChildrenService);
+  private readonly activitiesService  = inject(ActivitiesService);
 
   readonly user        = this.authService.user;
+  readonly isAdmin     = this.authService.isAdmin;
+  readonly enrollments = this.enrollmentsService.list;
+  readonly children    = this.childrenService.list;
+  readonly activities  = this.activitiesService.list;
+
   readonly tab         = signal<Tab>('enrollments');
   readonly enrollView  = signal<EnrollView>('list');
   readonly childFilter = signal<string | null>(null);
-  readonly selectedActivity = signal<ManagedActivity | null>(null);
+  readonly selectedActivityId = signal<string | null>(null);
   readonly showCreateForm = signal(false);
-  readonly dayHeaders  = DAY_HEADERS;
-  readonly weekDays    = WEEK_DAYS;
-  readonly categories  = CATEGORIES;
-  readonly today       = new Date().getDate();
+  readonly editingChildId = signal<string | null>(null);
 
-  // форма создания активности
-  readonly newName        = signal('');
-  readonly newCategory    = signal('');
-  readonly newEmoji       = signal('');
-  readonly newDescription = signal('');
-  readonly branchAddress  = signal('');
-  readonly branchDays     = signal<string[]>([]);
-  readonly branchTimeFrom = signal('10:00');
-  readonly branchTimeTo   = signal('12:00');
+  readonly weekDays = WEEK_DAYS;
+  readonly visitTypeLabel = VISIT_TYPE_LABEL;
+  readonly enrollmentStatusLabel = ENROLLMENT_STATUS_LABEL;
+  readonly activityStatusLabel   = ACTIVITY_STATUS_LABEL;
+  readonly yearsLabel = yearsLabel;
+  readonly formatDate = formatDate;
+  readonly canCancel  = isActiveEnrollment;
+  readonly monthOffset = signal(0);
 
-  // форма добавления ребёнка
-  readonly childFirstName = signal('');
-  readonly childLastName  = signal('');
-  readonly childAge       = signal(0);
-  readonly childGender    = signal<'male' | 'female'>('male');
+  /** id заявки или ребёнка, по которому идёт запрос. */
+  readonly busyId     = signal<string | null>(null);
+  readonly itemErrors = signal<Record<string, string>>({});
+
+  readonly rejectingId  = signal<string | null>(null);
+  readonly rejectReason = signal('');
+
+  /** Пока списки не загружены — счётчики из `user.stats`. */
+  readonly stats = computed(() => {
+    const s = this.user()?.stats;
+    const loaded = (list: RemoteList<unknown>) => list.status() === 'loaded';
+    return {
+      enrollments: loaded(this.enrollments) ? this.activeEnrollments().length : s?.enrollments ?? 0,
+      activities: loaded(this.activities) ? this.activities.items().length : s?.activities ?? 0,
+      children: loaded(this.children) ? this.children.items().length : s?.children ?? 0,
+    };
+  });
 
   readonly filteredEnrollments = computed(() => {
-    const u = this.user();
-    if (!u) return [];
+    const list = this.enrollments.items();
     const f = this.childFilter();
-    if (f === null) return u.enrollments;
-    if (f === 'self') return u.enrollments.filter(e => !e.forChild);
-    return u.enrollments.filter(e => e.forChild?.id === f);
+    if (f === null) return list;
+    if (f === 'self') return list.filter(e => !e.forChild);
+    return list.filter(e => e.forChild?.id === f);
   });
+
+  readonly maxDayEvents = MAX_DAY_EVENTS;
+
+  participantName(e: Enrollment): string {
+    return e.forChild ? e.forChild.firstName : 'вы';
+  }
+
+  readonly activeEnrollments = computed(() => this.enrollments.items().filter(isActiveEnrollment));
 
   readonly calendarDays = computed(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const firstDay = new Date(year, month, 1);
+    const firstDay = new Date(now.getFullYear(), now.getMonth() + this.monthOffset(), 1);
+    const year = firstDay.getFullYear();
+    const month = firstDay.getMonth();
     const lastDay = new Date(year, month + 1, 0);
+    const isCurrentMonth = this.monthOffset() === 0;
     const startOffset = (firstDay.getDay() + 6) % 7;
-    const days: Array<{ date: number | null; dots: string[] }> = [];
-    for (let i = 0; i < startOffset; i++) days.push({ date: null, dots: [] });
+    const enrollments = this.activeEnrollments();
+    const days: Array<{ date: number | null; today: boolean; events: CalendarEvent[] }> = [];
+    for (let i = 0; i < startOffset; i++) days.push({ date: null, today: false, events: [] });
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const weekday = DAY_NAMES[new Date(year, month, d).getDay()];
-      const dots = (this.user()?.enrollments ?? [])
-        .filter(e => e.days.includes(weekday)).map(e => e.color);
-      days.push({ date: d, dots });
+      const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const events = enrollments
+        .filter(e => e.days.includes(weekday) && e.enrolledAt <= iso)
+        .map(e => ({
+          who: e.forChild ? e.forChild.firstName[0] : 'Я',
+          label: e.clubName.split(' · ')[0],
+          title: `${e.clubName} — ${this.participantName(e)}` + (e.status === 'pending' ? ' (на рассмотрении)' : ''),
+          color: e.color,
+          pending: e.status === 'pending',
+        }));
+      days.push({ date: d, today: isCurrentMonth && d === now.getDate(), events });
     }
     return { days, monthLabel: firstDay.toLocaleString('ru', { month: 'long', year: 'numeric' }) };
   });
 
-  toggleBranchDay(day: string): void {
-    const curr = this.branchDays();
-    this.branchDays.set(curr.includes(day) ? curr.filter(d => d !== day) : [...curr, day]);
+  readonly selectedActivity = computed(() => {
+    const id = this.selectedActivityId();
+    return id ? this.activities.items().find(a => a.id === id) ?? null : null;
+  });
+
+  /** Заявки с неизвестным филиалом активности попадают в «прочие». */
+  readonly incoming = computed<IncomingByBranch>(() => {
+    const result: IncomingByBranch = { byBranch: {}, other: [] };
+    const act = this.selectedActivity();
+    if (!act) return result;
+    const branchIds = new Set(act.branches.map(b => b.id));
+    for (const ie of act.enrollments) {
+      if (ie.activityBranchId && branchIds.has(ie.activityBranchId)) {
+        (result.byBranch[ie.activityBranchId] ??= []).push(ie);
+      } else {
+        result.other.push(ie);
+      }
+    }
+    return result;
+  });
+
+  constructor() {
+    // статусы заявок меняет организатор — перезагружаем при каждом входе
+    this.authService.reloadUser().catch(() => undefined);
+    this.enrollments.load(true);
+    this.children.load(true);
+    this.activities.load(true);
   }
 
-  logout(): void { this.authService.logout(); }
-  cancelEnrollment(id: string): void { this.authService.cancelEnrollment(id); }
-  removeChild(id: string): void { this.authService.removeChild(id); }
-
-  addChild(): void {
-    if (!this.childFirstName() || !this.childAge()) return;
-    this.authService.addChild(this.childFirstName(), this.childLastName(), this.childAge(), this.childGender());
-    this.childFirstName.set(''); this.childLastName.set(''); this.childAge.set(0);
+  async logout(): Promise<void> {
+    await this.authService.logout();
+    await this.router.navigate(['/']);
   }
 
-  createActivity(): void {
-    if (!this.newName() || !this.newCategory()) return;
-    const branch: ActivityBranch = {
-      id: `b${Date.now()}`,
-      name: 'Основной',
-      address: this.branchAddress(),
-      days: this.branchDays(),
-      timeFrom: this.branchTimeFrom(),
-      timeTo: this.branchTimeTo(),
-    };
-    this.authService.addActivity({
-      name: this.newName(),
-      category: this.newCategory(),
-      emoji: this.newEmoji() || '🎯',
-      description: this.newDescription(),
-      branches: [branch],
+  cancelEnrollment(e: Enrollment): void {
+    if (this.busyId()) return;
+    this.startItem(e.id);
+    this.enrollmentsService.cancel(e.id).subscribe({
+      next: () => this.busyId.set(null),
+      error: (err: unknown) => {
+        const apiError = toApiError(err, 'Не удалось отменить запись');
+        if (apiError.status === 409) {
+          this.failItem(e.id, 'Эту заявку уже нельзя отменить');
+          this.enrollments.load(true);
+        } else {
+          this.failItem(e.id, apiError.message);
+        }
+      },
     });
-    this.newName.set(''); this.newCategory.set(''); this.newEmoji.set('');
-    this.newDescription.set(''); this.branchAddress.set('');
-    this.branchDays.set([]); this.branchTimeFrom.set('10:00'); this.branchTimeTo.set('12:00');
-    this.showCreateForm.set(false);
   }
 
-  branchEnrollments(act: ManagedActivity, branchName: string) {
-    return act.enrollments.filter(e => e.branchName === branchName);
+  selectActivity(a: Activity | null): void {
+    this.selectedActivityId.set(a?.id ?? null);
+    this.rejectingId.set(null);
+  }
+
+  confirmIncoming(ie: IncomingEnrollment): void {
+    if (this.busyId()) return;
+    this.startItem(ie.id);
+    this.enrollmentsService.confirm(ie.id).subscribe({
+      next: res => {
+        this.busyId.set(null);
+        this.activitiesService.setIncomingStatus(ie.id, res.status);
+      },
+      error: (err: unknown) => this.failIncoming(ie.id, err),
+    });
+  }
+
+  startReject(ie: IncomingEnrollment): void {
+    this.rejectingId.set(ie.id);
+    this.rejectReason.set('');
+  }
+
+  submitReject(ie: IncomingEnrollment): void {
+    if (this.busyId()) return;
+    this.startItem(ie.id);
+    this.enrollmentsService.reject(ie.id, this.rejectReason().trim() || undefined).subscribe({
+      next: res => {
+        this.busyId.set(null);
+        this.rejectingId.set(null);
+        this.activitiesService.setIncomingStatus(ie.id, res.status);
+      },
+      error: (err: unknown) => this.failIncoming(ie.id, err),
+    });
+  }
+
+  editChild(id: string): void {
+    this.clearItemError(id);
+    this.editingChildId.set(id);
+  }
+
+  onChildSaved(child: Child): void {
+    this.editingChildId.set(null);
+    this.enrollmentsService.replaceChild(child);
+  }
+
+  removeChild(id: string): void {
+    if (this.busyId()) return;
+    this.startItem(id);
+    this.childrenService.remove(id).subscribe({
+      next: () => this.busyId.set(null),
+      error: (err: unknown) => {
+        const apiError = toApiError(err, 'Не удалось удалить');
+        this.failItem(id, apiError.status === 409 ? 'Сначала отмените записи ребёнка' : apiError.message);
+      },
+    });
+  }
+
+  private startItem(id: string): void {
+    this.busyId.set(id);
+    this.clearItemError(id);
+  }
+
+  private clearItemError(id: string): void {
+    this.itemErrors.update(errors => {
+      const rest = { ...errors };
+      delete rest[id];
+      return rest;
+    });
+  }
+
+  private failItem(id: string, message: string): void {
+    this.busyId.set(null);
+    this.itemErrors.update(errors => ({ ...errors, [id]: message }));
+  }
+
+  private failIncoming(id: string, err: unknown): void {
+    const apiError = toApiError(err, 'Не удалось изменить статус заявки');
+    if (apiError.status === 409) {
+      this.failItem(id, 'Статус заявки уже изменился');
+      this.activities.load(true);
+    } else if (apiError.status === 404) {
+      this.failItem(id, 'Заявка больше недоступна');
+      this.activities.load(true);
+    } else {
+      this.failItem(id, apiError.message);
+    }
   }
 }

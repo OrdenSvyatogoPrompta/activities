@@ -2,15 +2,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ClubCategory, DayOfWeek, PriceType, VisitType } from '../models/club.model';
+import { CATEGORIES, ClubCategory, DayOfWeek, PriceType, VisitType, WEEK_DAYS } from '../models/club.model';
+import { AuthService } from '../services/auth.service';
 import { ClubsService } from '../services/clubs.service';
 
-const CATEGORIES: ClubCategory[] = ['Спорт', 'Творчество', 'Наука', 'Музыка', 'Танцы'];
 const CATEGORY_EMOJI: Record<ClubCategory, string> = {
   Спорт: '🏃', Творчество: '🎨', Наука: '🔬', Музыка: '🎵', Танцы: '💃',
 };
 const AGES = Array.from({ length: 15 }, (_, i) => i + 4); // 4..18
-const DAYS: DayOfWeek[] = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const AGE_MIN = 0;
 const AGE_MAX = 18;
 const PRICE_MIN = 0;
@@ -39,9 +38,9 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
       <div class="sticky-top">
 
         <header class="header">
-          <span class="header__logo">
+          <a class="header__logo" routerLink="/" (click)="resetFilters()">
             Заодно <span class="header__city">· Владивосток</span>
-          </span>
+          </a>
           <div class="header__right">
             <div class="header__search-wrap">
               <svg class="header__search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -56,7 +55,14 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
                 <button class="header__search-clear" (click)="searchQuery.set('')">✕</button>
               }
             </div>
-            <a class="header__auth" routerLink="/auth/login">Войти</a>
+            @if (authService.user()) {
+              @if (authService.isAdmin()) {
+                <a class="header__auth header__auth--admin" routerLink="/admin">Модерация</a>
+              }
+              <a class="header__auth" routerLink="/personal">Мой аккаунт</a>
+            } @else {
+              <a class="header__auth" routerLink="/auth/login">Войти</a>
+            }
           </div>
         </header>
 
@@ -135,7 +141,18 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
       </div>
 
       <div class="grid-wrap">
-        @if (filteredClubs().length === 0) {
+        @if (clubs.status() === 'loading' && clubs.items().length === 0) {
+          <div class="state">
+            <div class="spinner"></div>
+            <span>Загружаем кружки…</span>
+          </div>
+        } @else if (clubs.status() === 'error') {
+          <div class="state">
+            <div class="empty__icon">⚠️</div>
+            <span>{{ clubs.error() }}</span>
+            <button class="state__retry" (click)="clubs.load(true)">Повторить</button>
+          </div>
+        } @else if (filteredClubs().length === 0) {
           <div class="empty">
             <div class="empty__icon">🔍</div>
             <div class="empty__text">Ничего не найдено</div>
@@ -231,7 +248,8 @@ export const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
   `,
 })
 export class HomeComponent {
-  private readonly clubsService = inject(ClubsService);
+  readonly authService = inject(AuthService);
+  readonly clubs       = inject(ClubsService).list;
 
   readonly AGE_MIN    = AGE_MIN;
   readonly AGE_MAX    = AGE_MAX;
@@ -243,7 +261,7 @@ export class HomeComponent {
   readonly categoryBadge = CATEGORY_BADGE;
   readonly catEmoji      = CATEGORY_EMOJI;
   readonly ages          = AGES;
-  readonly days          = DAYS;
+  readonly days          = WEEK_DAYS;
 
   readonly searchQuery         = signal('');
   readonly selectedCategories  = signal<Set<ClubCategory>>(new Set());
@@ -282,7 +300,7 @@ export class HomeComponent {
     const filterByCat = cats.size > 0 && cats.size < CATEGORIES.length;
     const selDays = this.selectedDays();
     const vtf = this.visitTypeFilter();
-    return this.clubsService.getAll().filter((club) => {
+    return this.clubs.items().filter((club) => {
       if (filterByCat && !club.categories.some(c => cats.has(c))) return false;
       if (selDays.size > 0 && !club.days.some(d => selDays.has(d))) return false;
       if (vtf === 'recurring' && club.visitType === 'oneTime') return false;
@@ -325,6 +343,10 @@ export class HomeComponent {
   readonly hasActiveFilters = computed(() =>
     this.searchQuery() !== '' || this.selectedCategories().size > 0 || this.hasSecondaryFilters(),
   );
+
+  constructor() {
+    this.clubs.load();
+  }
 
   toggleDay(day: DayOfWeek): void {
     const next = new Set(this.selectedDays());

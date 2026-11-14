@@ -1,2 +1,19 @@
 gesdinet_jwt_refresh_token:
     refresh_token_class: App\Entity\RefreshToken
+
+    # 30 дней
+    ttl: 2592000
+
+    # Ротация: использованный refresh-токен удаляется
+    single_use: true
+
+    token_parameter_name: refresh_token
+
+    # Path=/api/auth: cookie уходит только на refresh и logout
+    cookie:
+        enabled: true
+        http_only: true
+        secure: true
+        same_site: strict
+        path: /api/auth
+        remove_token_from_body: true
