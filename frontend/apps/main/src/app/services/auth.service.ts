@@ -13,6 +13,7 @@ export class AuthService {
   private refreshInFlight: Observable<string> | null = null;
 
   readonly user = signal<User | null>(null);
+  readonly userId = computed(() => this.user()?.id ?? null);
   readonly accessToken = this.token.asReadonly();
   readonly isAdmin = computed(() => !!this.user()?.roles.includes('ROLE_ADMIN'));
 

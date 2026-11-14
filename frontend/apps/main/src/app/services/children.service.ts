@@ -10,12 +10,11 @@ import { RemoteList } from './remote-list';
 export class ChildrenService {
   private readonly api = inject(ApiClient);
 
-  readonly list = new RemoteList(() => this.api.get<Child[]>('/me/children'), 'Не удалось загрузить список детей');
-
-  constructor() {
-    const auth = inject(AuthService);
-    this.list.resetUnless(auth.user);
-  }
+  readonly list = new RemoteList(
+    () => this.api.get<Child[]>('/me/children'),
+    'Не удалось загрузить список детей',
+    inject(AuthService).userId,
+  );
 
   create(payload: CreateChildPayload): Observable<Child> {
     return this.api.post<Child>('/me/children', payload).pipe(

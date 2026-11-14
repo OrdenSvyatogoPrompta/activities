@@ -11,12 +11,11 @@ import { RemoteList } from './remote-list';
 export class ActivitiesService {
   private readonly api = inject(ApiClient);
 
-  readonly list = new RemoteList(() => this.api.get<Activity[]>('/me/activities'), 'Не удалось загрузить активности');
-
-  constructor() {
-    const auth = inject(AuthService);
-    this.list.resetUnless(auth.user);
-  }
+  readonly list = new RemoteList(
+    () => this.api.get<Activity[]>('/me/activities'),
+    'Не удалось загрузить активности',
+    inject(AuthService).userId,
+  );
 
   create(payload: CreateActivityPayload): Observable<Activity> {
     return this.api.post<Activity>('/me/activities', payload).pipe(

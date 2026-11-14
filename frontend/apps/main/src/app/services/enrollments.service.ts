@@ -12,12 +12,11 @@ export class EnrollmentsService {
   private readonly api = inject(ApiClient);
 
   /** Сервер не возвращает отменённые заявки. */
-  readonly list = new RemoteList(() => this.api.get<Enrollment[]>('/me/enrollments'), 'Не удалось загрузить записи');
-
-  constructor() {
-    const auth = inject(AuthService);
-    this.list.resetUnless(auth.user);
-  }
+  readonly list = new RemoteList(
+    () => this.api.get<Enrollment[]>('/me/enrollments'),
+    'Не удалось загрузить записи',
+    inject(AuthService).userId,
+  );
 
   create(payload: CreateEnrollmentPayload): Observable<Enrollment> {
     return this.api.post<Enrollment>('/enrollments', payload).pipe(

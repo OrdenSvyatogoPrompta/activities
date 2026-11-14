@@ -11,22 +11,33 @@ export class RemoteList<T> {
   readonly error = signal('');
 
   private request?: Subscription;
+  private loadedFor: unknown = null;
 
+  /** `owner` — чьи это данные (id пользователя): при его смене список сбрасывается. */
   constructor(
     private readonly fetch: () => Observable<T[]>,
     private readonly errorMessage: string,
-  ) {}
+    private readonly owner?: () => unknown,
+  ) {
+    if (owner) {
+      effect(() => {
+        owner();
+        untracked(() => { if (this.isStale()) this.reset(); });
+      });
+    }
+  }
 
   /** Без `force` не перезапрашивает уже загруженный список; идущий запрос не дублирует. */
   load(force = false): void {
     const status = this.status();
-    if (status === 'loading' || (status === 'loaded' && !force)) return;
+    if (!this.isStale() && (status === 'loading' || (status === 'loaded' && !force))) return;
     this.reload();
   }
 
   /** Отменяет текущий запрос, чтобы ответ по старому фильтру не перезаписал новый. */
   reload(): void {
     this.request?.unsubscribe();
+    this.loadedFor = this.owner?.() ?? null;
     this.status.set('loading');
     this.error.set('');
     this.request = this.fetch().subscribe({
@@ -41,15 +52,14 @@ export class RemoteList<T> {
     });
   }
 
-  /** Например, сброс данных прошлой сессии при выходе. */
-  resetUnless(active: () => unknown): void {
-    effect(() => {
-      if (!active()) untracked(() => this.reset());
-    });
+  /** Эффект срабатывает асинхронно, поэтому `load` тоже сверяет владельца сам. */
+  private isStale(): boolean {
+    return (this.owner?.() ?? null) !== this.loadedFor;
   }
 
   private reset(): void {
     this.request?.unsubscribe();
+    this.loadedFor = this.owner?.() ?? null;
     this.items.set([]);
     this.status.set('idle');
     this.error.set('');
