@@ -23,12 +23,13 @@ final class AuthFlowTest extends AuthApiTestCase
         self::assertResponseIsSuccessful();
         self::assertSame($registered['user'], $this->json());
 
-        // refresh: новый access-токен и новый refresh-токен (ротация)
+        // refresh: новый access-токен, пользователь и новый refresh-токен (ротация)
         $this->jsonRequest('POST', '/api/auth/refresh');
         self::assertResponseIsSuccessful();
         $refreshed = $this->json();
-        self::assertSame(['accessToken'], array_keys($refreshed));
+        self::assertSame(['accessToken', 'user'], array_keys($refreshed));
         self::assertIsString($refreshed['accessToken']);
+        self::assertSame($registered['user'], $refreshed['user']);
         $secondRefresh = $this->assertRefreshCookieIssued();
         self::assertNotSame($firstRefresh, $secondRefresh);
         self::assertSame($secondRefresh, $this->jarRefreshToken());

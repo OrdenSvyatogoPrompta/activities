@@ -215,7 +215,7 @@ Club 1─* Branch 1─* ScheduleSlot
 |---|---|---|
 | POST | `/api/auth/register` | `{ name, email, password }` → `201 { accessToken, user }` + cookie refresh |
 | POST | `/api/auth/login` | `{ email, password }` → `200 { accessToken, user }` + cookie refresh |
-| POST | `/api/auth/refresh` | cookie refresh → `200 { accessToken }` + новая cookie |
+| POST | `/api/auth/refresh` | cookie refresh → `200 { accessToken, user }` + новая cookie |
 | POST | `/api/auth/logout` | инвалидирует refresh, чистит cookie → `204` |
 | GET | `/api/me` | `200 user` |
 | PATCH | `/api/me` | `{ name? }` → `200 user` (на фронте пока нет, но дешево и нужно) |
