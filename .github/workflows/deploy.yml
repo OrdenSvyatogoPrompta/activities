@@ -147,7 +147,7 @@ jobs:
       # кроме ~/.docker/config.json на время pull) и удаляется trap'ом при любом исходе.
       # Миграции — новым образом до перезапуска сервисов.
       # </dev/null: иначе docker compose run/exec прочитает остаток этого скрипта из stdin
-      - name: Pull images, migrate and restart
+      - name: Pull images, migrate, seed and restart
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
@@ -171,6 +171,7 @@ jobs:
             sleep 2
           done
           docker compose run --rm -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration </dev/null
+          docker compose run --rm -T backend php bin/console app:seed --no-interaction </dev/null
           docker compose up -d --remove-orphans
           docker image prune -f
           EOF
