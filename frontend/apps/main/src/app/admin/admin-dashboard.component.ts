@@ -11,6 +11,7 @@ import { AdminService } from '../services/admin.service';
 import { AuthService } from '../services/auth.service';
 import { EnrollmentsService } from '../services/enrollments.service';
 import { RemoteList } from '../services/remote-list';
+import { HeaderUserComponent } from '../shared/header-user.component';
 import { formatDate, yearsLabel } from '../utils/format';
 
 type Tab = 'activities' | 'enrollments';
@@ -36,7 +37,7 @@ function actionError(err: unknown, target: Target): string {
 
 @Component({
   selector: 'act-admin-dashboard',
-  imports: [RouterLink],
+  imports: [RouterLink, HeaderUserComponent],
   styleUrl: './admin-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -45,6 +46,7 @@ function actionError(err: unknown, target: Target): string {
       <span class="header__title">Модерация</span>
       <div class="header__actions">
         <a class="header__link" routerLink="/personal">Кабинет</a>
+        <act-header-user />
         <button class="header__logout" (click)="logout()">Выйти</button>
       </div>
     </header>

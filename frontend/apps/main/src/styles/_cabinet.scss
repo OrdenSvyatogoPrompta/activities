@@ -1,5 +1,7 @@
 // Шапка и вкладки ЛК и админки.
 
+@use 'buttons';
+
 .header {
   display: flex;
   align-items: center;
@@ -24,28 +26,15 @@
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 10px;
   }
 
-  &__link {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--brand-purple);
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
-  }
+  &__link,
+  &__logout { @include buttons.header-btn; }
 
-  &__logout {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text-muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s;
-    &:hover { color: #ef4444; }
-  }
+  &__link { @include buttons.header-btn-accent; }
+
+  &__logout:hover { color: #ef4444; border-color: #fca5a5; background: #fef2f2; }
 }
 
 .tabs {

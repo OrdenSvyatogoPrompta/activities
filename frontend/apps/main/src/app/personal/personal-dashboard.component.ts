@@ -12,10 +12,10 @@ import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { EnrollmentsService } from '../services/enrollments.service';
 import { RemoteList } from '../services/remote-list';
+import { HeaderUserComponent } from '../shared/header-user.component';
 import { formatDate, yearsLabel } from '../utils/format';
 import { ActivityFormComponent } from './activity-form.component';
 import { ChildFormComponent } from './child-form.component';
-import { ProfileNameComponent } from './profile-name.component';
 
 type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
@@ -40,30 +40,21 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 
 @Component({
   selector: 'act-personal-dashboard',
-  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, ProfileNameComponent],
+  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, HeaderUserComponent],
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (user(); as user) {
+    @if (user()) {
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
         <div class="header__actions">
           @if (isAdmin()) {
             <a class="header__link" routerLink="/admin">Модерация</a>
           }
+          <act-header-user />
           <button class="header__logout" (click)="logout()">Выйти</button>
         </div>
       </header>
-
-      <div class="hero">
-        <div class="hero__top">
-          <div class="hero__avatar">{{ (user.name || user.email)[0].toUpperCase() }}</div>
-          <div class="hero__info">
-            <act-profile-name />
-            <p class="hero__email">{{ user.email }}</p>
-          </div>
-        </div>
-      </div>
 
       <div class="tabs">
         <button class="tab" [class.tab--active]="tab() === 'enrollments'" (click)="tab.set('enrollments')">
