@@ -106,7 +106,7 @@ final class DomainModelTest extends TestCase
         self::assertSame('pending', $enrollment->getMarking());
         self::assertNull($enrollment->getChild());
         self::assertTrue($enrollment->canBeModeratedBy($owner));
-        self::assertTrue($enrollment->canBeModeratedBy($admin));
+        self::assertFalse($enrollment->canBeModeratedBy($admin));
         self::assertFalse($enrollment->canBeModeratedBy($author));
         self::assertTrue($enrollment->canBeCancelledBy($author));
         self::assertFalse($enrollment->canBeCancelledBy($owner));
@@ -115,13 +115,16 @@ final class DomainModelTest extends TestCase
         self::assertSame(EnrollmentStatus::Cancelled, $enrollment->getStatus());
     }
 
-    public function testOwnerlessClubIsModeratedOnlyByAdmin(): void
+    public function testOwnerlessClubEnrollmentIsModeratedByNobody(): void
     {
         $club = $this->club();
         $club->addBranch(new Branch(Branch::DEFAULT_NAME, 'адрес'));
         $user = new User('maria@example.com', 'Мария');
+        $admin = (new User('admin@example.com', 'Админ'))->promoteToAdmin();
+        $enrollment = new Enrollment($user, $club, null);
 
-        self::assertFalse((new Enrollment($user, $club, null))->canBeModeratedBy($user));
+        self::assertFalse($enrollment->canBeModeratedBy($user));
+        self::assertFalse($enrollment->canBeModeratedBy($admin));
     }
 
     public function testActivityApproval(): void

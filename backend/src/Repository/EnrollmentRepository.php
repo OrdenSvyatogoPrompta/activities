@@ -127,23 +127,6 @@ class EnrollmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /**
-     * @return list<Enrollment>
-     */
-    public function findForAdmin(EnrollmentStatus $status, bool $ownerlessOnly): array
-    {
-        $qb = $this->createDetailedQueryBuilder()
-            ->andWhere('e.status = :status')
-            ->setParameter('status', $status->value)
-            ->addOrderBy('e.createdAt', 'ASC');
-
-        if ($ownerlessOnly) {
-            $qb->andWhere('c.owner IS NULL');
-        }
-
-        return $qb->getQuery()->getResult();
-    }
-
     private function createDetailedQueryBuilder(): QueryBuilder
     {
         return $this->createQueryBuilder('e')

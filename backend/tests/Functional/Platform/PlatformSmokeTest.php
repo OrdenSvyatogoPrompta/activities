@@ -35,7 +35,7 @@ final class PlatformSmokeTest extends ApiTestCase
 
     public function testAdminRouteWithoutTokenReturns401Problem(): void
     {
-        $this->client->request('GET', '/api/admin/enrollments');
+        $this->client->request('GET', '/api/admin/activities');
 
         $this->assertProblem(401);
     }

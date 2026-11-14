@@ -110,11 +110,11 @@ class Enrollment
     }
 
     /**
-     * Заявки в кружки без владельца модерирует только администратор.
+     * Подтверждает и отклоняет только владелец кружка; у кружка без владельца — никто.
      */
     public function canBeModeratedBy(User $user): bool
     {
-        return $user->isAdmin() || $this->club->isOwnedBy($user);
+        return $this->club->isOwnedBy($user);
     }
 
     public function canBeCancelledBy(User $user): bool

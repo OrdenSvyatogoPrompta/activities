@@ -84,7 +84,8 @@ final class CancelEnrollmentTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 
-        $this->assertProblem(403);
+        // Админ чужих заявок не видит
+        $this->assertProblem(404);
     }
 
     public function testUnknownOrMalformedIdReturns404(): void

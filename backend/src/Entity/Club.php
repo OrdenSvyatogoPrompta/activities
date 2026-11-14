@@ -76,7 +76,7 @@ class Club
     #[ORM\Column]
     private bool $isPublished;
 
-    /** null — кружок без владельца, заявки в него подтверждает администратор. */
+    /** null — кружок без владельца: заявки в него некому подтвердить. */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $owner;

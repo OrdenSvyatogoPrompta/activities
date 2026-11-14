@@ -39,17 +39,17 @@ final class EnrollmentVoterTest extends TestCase
     {
         // [кто голосует, у кружка есть владелец, атрибут, ожидаемый результат]
         yield 'владелец подтверждает' => ['owner', true, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_GRANTED];
-        yield 'админ подтверждает в чужом кружке' => ['admin', true, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_GRANTED];
-        yield 'админ подтверждает в бесхозном кружке' => ['admin', false, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_GRANTED];
+        yield 'админ не подтверждает в чужом кружке' => ['admin', true, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
+        yield 'админ не подтверждает в бесхозном кружке' => ['admin', false, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
         yield 'автор не подтверждает свою заявку' => ['author', true, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
         yield 'посторонний не подтверждает' => ['stranger', true, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
-        yield 'в бесхозном кружке подтверждает только админ' => ['stranger', false, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
+        yield 'в бесхозном кружке никто не подтверждает' => ['stranger', false, EnrollmentVoter::MODERATE, VoterInterface::ACCESS_DENIED];
         yield 'автор отменяет' => ['author', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_GRANTED];
         yield 'владелец не отменяет' => ['owner', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_DENIED];
         yield 'админ не отменяет' => ['admin', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_DENIED];
         yield 'автор видит заявку' => ['author', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
         yield 'владелец видит входящую заявку' => ['owner', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
-        yield 'админ видит любую заявку' => ['admin', false, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
+        yield 'админ не видит чужую заявку' => ['admin', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_DENIED];
         yield 'посторонний не видит заявку' => ['stranger', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_DENIED];
         yield 'в бесхозном кружке посторонний не видит заявку' => ['stranger', false, EnrollmentVoter::VIEW, VoterInterface::ACCESS_DENIED];
     }
