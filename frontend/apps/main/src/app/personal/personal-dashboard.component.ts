@@ -581,8 +581,9 @@ export class PersonalDashboardComponent {
     if (apiError.status === 409) {
       this.failItem(id, 'Статус заявки уже изменился');
       this.activities.load(true);
-    } else if (apiError.status === 403) {
-      this.failItem(id, 'Нет прав на изменение этой заявки');
+    } else if (apiError.status === 404) {
+      this.failItem(id, 'Заявка больше недоступна');
+      this.activities.load(true);
     } else {
       this.failItem(id, apiError.message);
     }
