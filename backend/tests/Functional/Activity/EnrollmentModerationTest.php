@@ -108,19 +108,9 @@ final class EnrollmentModerationTest extends ApiTestCase
         self::assertSame('Нельзя отклонить заявку: она подтверждена', $this->assertProblem(409)['detail']);
     }
 
-    public function testConfirmedSeedEnrollmentCannotBeConfirmedAgain(): void
-    {
-        // Артём в swimming-dyush — confirmed в фикстурах, кружок без владельца
-        $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
-
-        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
-
-        $this->assertProblem(409);
-    }
-
     public function testStrangerGets404(): void
     {
-        // Игорь не автор заявки Анны, не владелец akvarel и не админ — заявку он «не видит»
+        // Игорь не автор заявки Анны, не владелец akvarel — заявку он «не видит»
         $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::IGOR));
@@ -146,7 +136,7 @@ final class EnrollmentModerationTest extends ApiTestCase
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
 
         $problem = $this->assertProblem(403);
-        self::assertSame('Подтверждать и отклонять заявку может только владелец кружка или администратор', $problem['detail']);
+        self::assertSame('Подтверждать и отклонять заявку может только владелец кружка', $problem['detail']);
     }
 
     public function testForbiddenWinsOverInvalidTransition(): void
@@ -159,7 +149,7 @@ final class EnrollmentModerationTest extends ApiTestCase
         $this->assertProblem(403);
     }
 
-    public function testOwnerlessClubIsModeratedOnlyByAdmin(): void
+    public function testOwnerlessClubEnrollmentCannotBeModerated(): void
     {
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
 
@@ -167,27 +157,25 @@ final class EnrollmentModerationTest extends ApiTestCase
         $this->assertProblem(403);
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
-        self::assertResponseIsSuccessful();
-        self::assertSame('confirmed', $this->json()['status']);
-        self::assertSame('Соня', $this->json()['forChild']['firstName']);
+        $this->assertProblem(404);
     }
 
-    public function testAdminCanModerateOwnedClub(): void
+    public function testAdminCannotModerateSomeoneElsesClub(): void
     {
+        // Заявки обрабатывает только организатор: для админа чужая заявка — как для постороннего
         $id = $this->enrollmentOf(self::VERA, 'akvarel')->getId()->toRfc4122();
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', ['reason' => 'Дубль'], accessToken: $this->tokenFor(self::ADMIN));
 
-        self::assertResponseIsSuccessful();
-        self::assertSame('rejected', $this->json()['status']);
+        $this->assertProblem(404);
     }
 
     public function testUnknownEnrollmentReturns404(): void
     {
-        $this->jsonRequest('POST', '/api/enrollments/0192f000-0000-7000-8000-000000000000/confirm', [], accessToken: $this->tokenFor(self::ADMIN));
+        $this->jsonRequest('POST', '/api/enrollments/0192f000-0000-7000-8000-000000000000/confirm', [], accessToken: $this->tokenFor(self::MARIA));
         self::assertSame('Заявка не найдена', $this->assertProblem(404)['detail']);
 
-        $this->jsonRequest('POST', '/api/enrollments/not-a-uuid/reject', [], accessToken: $this->tokenFor(self::ADMIN));
+        $this->jsonRequest('POST', '/api/enrollments/not-a-uuid/reject', [], accessToken: $this->tokenFor(self::MARIA));
         $this->assertProblem(404);
     }
 

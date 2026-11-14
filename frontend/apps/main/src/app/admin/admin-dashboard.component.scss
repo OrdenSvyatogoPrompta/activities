@@ -6,13 +6,14 @@
   background: var(--color-bg);
 }
 
+// Подпись раздела, отделённая от лого чертой, — не кнопка
 .header__title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--brand-purple);
-  background: var(--brand-purple-muted);
-  border-radius: 20px;
-  padding: 3px 10px;
+  color: var(--color-text-secondary);
+  padding-left: 12px;
+  border-left: 1px solid var(--color-border);
+  line-height: 18px;
 }
 
 .content {
@@ -33,15 +34,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--color-text);
-  cursor: pointer;
 }
 
 .filters .btn-link { margin-left: auto; }
@@ -84,8 +76,7 @@
     letter-spacing: -0.01em;
   }
 
-  &__meta,
-  &__hint {
+  &__meta {
     font-size: 12px;
     color: var(--color-text-secondary);
     font-weight: 400;
@@ -179,7 +170,6 @@
 @media (max-width: 560px) {
   .header { padding: 0 16px; }
   .header__title { display: none; }
-  .tabs { padding: 0 8px; }
   .content { padding: 16px 12px 40px; }
   .filters .btn-link { margin-left: 0; }
   .card__label { display: block; min-width: 0; }

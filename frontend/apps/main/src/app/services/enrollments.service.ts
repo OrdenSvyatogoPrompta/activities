@@ -30,7 +30,7 @@ export class EnrollmentsService {
     );
   }
 
-  /** Подтверждение и отклонение — для организатора кружка и администратора. */
+  /** Подтверждение и отклонение — только для организатора кружка. */
   confirm(id: string): Observable<Enrollment> {
     return this.api.post<Enrollment>(`/enrollments/${encodeURIComponent(id)}/confirm`);
   }

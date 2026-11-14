@@ -30,7 +30,7 @@ final class EnrollmentVoter extends Voter
     ];
 
     public const array DENIED_MESSAGES = [
-        self::MODERATE => 'Подтверждать и отклонять заявку может только владелец кружка или администратор',
+        self::MODERATE => 'Подтверждать и отклонять заявку может только владелец кружка',
         self::CANCEL => 'Отменить заявку может только её автор',
     ];
 
