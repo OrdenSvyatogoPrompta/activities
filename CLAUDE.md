@@ -97,7 +97,7 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
 | `/club/:id` | `club/ClubComponent` | Карточка кружка (`id` = slug): описание, филиалы, контакты; окно записи (филиал, «для себя»/ребёнок) → заявка `pending` |
 | `/auth/login`, `/auth/register` | `auth/*` | Вход и регистрация через API, после — `returnUrl` или `/personal` |
 | `/personal` | `personal/PersonalDashboardComponent` (`authGuard`) | ЛК, 3 вкладки: **Мои записи** (список с фильтром по участнику + календарь с листанием месяцев), **Активности** (свои, статус модерации, входящие заявки по филиалам, форма создания), **Дети** (добавление, правка, удаление) |
-| `/admin` | `admin/AdminDashboardComponent` (`adminGuard`) | Модерация: одобрение/отклонение активностей, заявки в кружки без владельца, снятие с публикации |
+| `/admin` | `admin/AdminDashboardComponent` (`adminGuard`) | Модерация активностей: одобрение/отклонение, снятие кружка с публикации. Заявки на запись обрабатывает только организатор |
 | `/org` | — | редирект на `/personal` |
 
 `org/OrgDashboardComponent` в `main` не подключён к роутам (остаток).
@@ -129,7 +129,7 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
   (заявка организатора, после одобрения админом становится `Club`), `ActivityBranch`, `Enrollment`, `RefreshToken`.
   UUID v7. Схема — одна миграция в `migrations/`.
 - Заявка на запись — state machine `enrollment` (`pending → confirmed|rejected|cancelled`, `confirmed → cancelled`);
-  права — `Security/Voter/EnrollmentVoter` (подтверждает владелец кружка или `ROLE_ADMIN`, отменяет автор).
+  права — `Security/Voter/EnrollmentVoter` (подтверждает только владелец кружка, отменяет автор; админ прав не имеет).
 - Auth: JWT access 15 мин в `Authorization: Bearer`, refresh 30 дней в HttpOnly cookie (`Path=/api/auth`, single-use).
   Публичны `/api/auth/{register,login,refresh}`, `GET /api/clubs*`, `/api/dictionaries`, `/api/ping`; `/api/admin/*` — `ROLE_ADMIN`.
 - Ошибки — `application/problem+json` (`src/Http/Problem`), тексты на русском; `#[Assert]` — с русским `message:`
