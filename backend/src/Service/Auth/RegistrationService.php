@@ -6,14 +6,10 @@ namespace App\Service\Auth;
 
 use App\Dto\Auth\RegisterRequest;
 use App\Entity\User;
+use App\Http\Problem\ValidationProblem;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Validator\ConstraintViolation;
-use Symfony\Component\Validator\ConstraintViolationList;
-use Symfony\Component\Validator\ConstraintViolationListInterface;
-use Symfony\Component\Validator\Exception\ValidationFailedException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final readonly class RegistrationService
@@ -34,7 +30,7 @@ final readonly class RegistrationService
 
         $violations = $this->validator->validate($user);
         if (\count($violations) > 0) {
-            throw $this->validationError($user, $violations);
+            throw ValidationProblem::fromViolations($user, $violations);
         }
 
         $this->entityManager->persist($user);
@@ -43,17 +39,9 @@ final readonly class RegistrationService
             $this->entityManager->flush();
         } catch (UniqueConstraintViolationException $e) {
             // Гонка двух одновременных регистраций: UniqueEntity прошли оба запроса
-            throw $this->validationError($user, new ConstraintViolationList([new ConstraintViolation(self::EMAIL_TAKEN, self::EMAIL_TAKEN, [], $user, 'email', $user->getEmail(), cause: $e)]));
+            throw ValidationProblem::forProperty($user, 'email', $user->getEmail(), self::EMAIL_TAKEN, $e);
         }
 
         return $user;
-    }
-
-    /**
-     * Та же форма 422, что у `#[MapRequestPayload]`: ProblemFactory найдёт нарушения в цепочке.
-     */
-    private function validationError(User $user, ConstraintViolationListInterface $violations): UnprocessableEntityHttpException
-    {
-        return new UnprocessableEntityHttpException('Ошибка валидации', new ValidationFailedException($user, $violations));
     }
 }

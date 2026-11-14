@@ -6,6 +6,7 @@ namespace App\Tests\Unit\Http\Problem;
 
 use App\Http\Problem\ProblemFactory;
 use App\Http\Problem\ProblemResponse;
+use App\Http\Problem\ValidationProblem;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -43,6 +44,17 @@ final class ProblemFactoryTest extends TestCase
                 ['propertyPath' => 'age', 'message' => 'Значение должно иметь тип int.'],
             ],
         ], $problem);
+    }
+
+    public function testValidationProblemForPropertyBecomes422WithViolation(): void
+    {
+        $exception = ValidationProblem::forProperty(new \stdClass(), 'childId', 'nope', 'Ребёнок не найден среди ваших детей');
+
+        $problem = $this->decode((new ProblemFactory(false))->fromThrowable($exception));
+
+        self::assertSame(422, $problem['status']);
+        self::assertSame('Данные запроса не прошли проверку', $problem['detail']);
+        self::assertSame([['propertyPath' => 'childId', 'message' => 'Ребёнок не найден среди ваших детей']], $problem['violations']);
     }
 
     public function testRussianMessageIsPassedAsDetail(): void

@@ -11,6 +11,7 @@ use App\Entity\Club;
 use App\Entity\Enrollment;
 use App\Entity\Enum\EnrollmentStatus;
 use App\Entity\User;
+use App\Http\Problem\ValidationProblem;
 use App\Repository\ChildRepository;
 use App\Repository\ClubRepository;
 use App\Repository\EnrollmentRepository;
@@ -19,10 +20,6 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
-use Symfony\Component\Validator\ConstraintViolation;
-use Symfony\Component\Validator\ConstraintViolationList;
-use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 final readonly class EnrollmentService
 {
@@ -81,11 +78,11 @@ final readonly class EnrollmentService
     {
         if (null === $request->branchId || '' === $request->branchId) {
             return $club->getSingleBranch()
-                ?? throw $this->unprocessable($request, 'branchId', $request->branchId, 'Выберите филиал: у кружка их несколько');
+                ?? throw ValidationProblem::forProperty($request, 'branchId', $request->branchId, 'Выберите филиал: у кружка их несколько');
         }
 
         return $club->findBranch($request->branchId)
-            ?? throw $this->unprocessable($request, 'branchId', $request->branchId, 'Филиал не относится к этому кружку');
+            ?? throw ValidationProblem::forProperty($request, 'branchId', $request->branchId, 'Филиал не относится к этому кружку');
     }
 
     private function resolveChild(User $user, CreateEnrollmentRequest $request): ?Child
@@ -95,18 +92,6 @@ final readonly class EnrollmentService
         }
 
         return $this->children->findOneOwnedBy($request->childId, $user)
-            ?? throw $this->unprocessable($request, 'childId', $request->childId, 'Ребёнок не найден среди ваших детей');
-    }
-
-    /**
-     * Та же форма 422, что у `#[MapRequestPayload]`.
-     */
-    private function unprocessable(CreateEnrollmentRequest $request, string $propertyPath, mixed $invalidValue, string $message): UnprocessableEntityHttpException
-    {
-        $violations = new ConstraintViolationList([
-            new ConstraintViolation($message, $message, [], $request, $propertyPath, $invalidValue),
-        ]);
-
-        return new UnprocessableEntityHttpException($message, new ValidationFailedException($request, $violations));
+            ?? throw ValidationProblem::forProperty($request, 'childId', $request->childId, 'Ребёнок не найден среди ваших детей');
     }
 }
