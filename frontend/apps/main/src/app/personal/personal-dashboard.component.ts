@@ -15,7 +15,6 @@ import { RemoteList } from '../services/remote-list';
 import { formatDate, yearsLabel } from '../utils/format';
 import { ActivityFormComponent } from './activity-form.component';
 import { ChildFormComponent } from './child-form.component';
-import { ProfileNameComponent } from './profile-name.component';
 
 type Tab = 'enrollments' | 'activities' | 'children';
 type EnrollView = 'list' | 'calendar';
@@ -40,7 +39,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 
 @Component({
   selector: 'act-personal-dashboard',
-  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, ProfileNameComponent],
+  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent],
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -59,7 +58,7 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
         <div class="hero__top">
           <div class="hero__avatar">{{ (user.name || user.email)[0].toUpperCase() }}</div>
           <div class="hero__info">
-            <act-profile-name />
+            <p class="hero__name">{{ user.name || 'Без имени' }}</p>
             <p class="hero__email">{{ user.email }}</p>
           </div>
         </div>

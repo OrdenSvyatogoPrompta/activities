@@ -49,10 +49,6 @@ export class AuthService {
     this.user.set(await firstValueFrom(this.api.get<User>('/me')));
   }
 
-  async updateName(name: string): Promise<void> {
-    this.user.set(await firstValueFrom(this.api.patch<User>('/me', { name })));
-  }
-
   /** Параллельные 401 разделяют один запрос обновления. */
   refresh(): Observable<string> {
     if (!this.refreshInFlight) {
