@@ -47,6 +47,11 @@ final class EnrollmentVoterTest extends TestCase
         yield 'автор отменяет' => ['author', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_GRANTED];
         yield 'владелец не отменяет' => ['owner', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_DENIED];
         yield 'админ не отменяет' => ['admin', true, EnrollmentVoter::CANCEL, VoterInterface::ACCESS_DENIED];
+        yield 'автор видит заявку' => ['author', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
+        yield 'владелец видит входящую заявку' => ['owner', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
+        yield 'админ видит любую заявку' => ['admin', false, EnrollmentVoter::VIEW, VoterInterface::ACCESS_GRANTED];
+        yield 'посторонний не видит заявку' => ['stranger', true, EnrollmentVoter::VIEW, VoterInterface::ACCESS_DENIED];
+        yield 'в бесхозном кружке посторонний не видит заявку' => ['stranger', false, EnrollmentVoter::VIEW, VoterInterface::ACCESS_DENIED];
     }
 
     #[DataProvider('cases')]

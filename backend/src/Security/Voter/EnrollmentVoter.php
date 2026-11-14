@@ -6,19 +6,28 @@ namespace App\Security\Voter;
 
 use App\Entity\Enrollment;
 use App\Entity\User;
+use App\Workflow\EnrollmentWorkflow;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
  * Права на заявку; им же следует guard workflow `enrollment` (EnrollmentGuardListener).
+ * Кто не видит заявку (VIEW), получает 404, а не 403: чужие id не перебрать.
  *
- * @extends Voter<self::MODERATE|self::CANCEL, Enrollment>
+ * @extends Voter<self::VIEW|self::MODERATE|self::CANCEL, Enrollment>
  */
 final class EnrollmentVoter extends Voter
 {
+    public const string VIEW = 'ENROLLMENT_VIEW';
     public const string MODERATE = 'ENROLLMENT_MODERATE';
     public const string CANCEL = 'ENROLLMENT_CANCEL';
+
+    public const array TRANSITION_ATTRIBUTES = [
+        EnrollmentWorkflow::TRANSITION_CONFIRM => self::MODERATE,
+        EnrollmentWorkflow::TRANSITION_REJECT => self::MODERATE,
+        EnrollmentWorkflow::TRANSITION_CANCEL => self::CANCEL,
+    ];
 
     public const array DENIED_MESSAGES = [
         self::MODERATE => 'Подтверждать и отклонять заявку может только владелец кружка или администратор',
@@ -27,7 +36,7 @@ final class EnrollmentVoter extends Voter
 
     public function supportsAttribute(string $attribute): bool
     {
-        return isset(self::DENIED_MESSAGES[$attribute]);
+        return \in_array($attribute, [self::VIEW, self::MODERATE, self::CANCEL], true);
     }
 
     public function supportsType(string $subjectType): bool
@@ -46,6 +55,7 @@ final class EnrollmentVoter extends Voter
         \assert($subject instanceof Enrollment);
 
         return $user instanceof User && match ($attribute) {
+            self::VIEW => $subject->isAuthoredBy($user) || $subject->canBeModeratedBy($user),
             self::MODERATE => $subject->canBeModeratedBy($user),
             self::CANCEL => $subject->canBeCancelledBy($user),
         };

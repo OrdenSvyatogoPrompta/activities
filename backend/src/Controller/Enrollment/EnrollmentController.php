@@ -51,9 +51,9 @@ final class EnrollmentController extends ApiController
     }
 
     #[Route('/api/enrollments/{id}/cancel', name: 'api_enrollments_cancel', methods: ['POST'])]
-    public function cancel(#[CurrentUser] User $user, string $id): JsonResponse
+    public function cancel(string $id): JsonResponse
     {
-        $enrollment = $this->enrollments->cancel($user, $id);
+        $enrollment = $this->enrollments->cancel($id);
 
         return $this->json(EnrollmentResponse::fromEntity($enrollment, $this->scheduleFormatter));
     }

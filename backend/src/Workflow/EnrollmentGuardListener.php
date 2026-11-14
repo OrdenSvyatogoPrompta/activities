@@ -23,9 +23,7 @@ final readonly class EnrollmentGuardListener
 
     public function __invoke(GuardEvent $event): void
     {
-        $attribute = EnrollmentWorkflow::TRANSITION_CANCEL === $event->getTransition()?->getName()
-            ? EnrollmentVoter::CANCEL
-            : EnrollmentVoter::MODERATE;
+        $attribute = EnrollmentVoter::TRANSITION_ATTRIBUTES[$event->getTransition()->getName()];
 
         if (!$this->security->isGranted($attribute, $event->getSubject())) {
             $event->addTransitionBlocker(new TransitionBlocker(

@@ -57,7 +57,7 @@ final class CancelEnrollmentTest extends ApiTestCase
 
     public function testStrangerGets404(): void
     {
-        // Анна не автор, не владелец swimming-dyush и не админ — заявку Марии она «не видит»
+        // Анна не автор, не владелец gimnastika-voskhod и не админ — заявку Марии она «не видит»
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
         $this->loginAs(self::ANNA);
 

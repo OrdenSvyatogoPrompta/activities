@@ -15,15 +15,15 @@ final readonly class EnrollmentModerationService
     ) {
     }
 
-    public function confirm(Enrollment $enrollment): void
+    public function confirm(string $id): Enrollment
     {
-        $this->transitions->apply($enrollment, EnrollmentWorkflow::TRANSITION_CONFIRM);
+        return $this->transitions->apply($id, EnrollmentWorkflow::TRANSITION_CONFIRM);
     }
 
-    public function reject(Enrollment $enrollment, ?string $reason): void
+    public function reject(string $id, ?string $reason): Enrollment
     {
-        $this->transitions->apply(
-            $enrollment,
+        return $this->transitions->apply(
+            $id,
             EnrollmentWorkflow::TRANSITION_REJECT,
             static fn (Enrollment $enrollment) => $enrollment->setRejectReason($reason),
         );

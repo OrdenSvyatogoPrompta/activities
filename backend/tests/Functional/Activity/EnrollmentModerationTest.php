@@ -118,16 +118,25 @@ final class EnrollmentModerationTest extends ApiTestCase
         $this->assertProblem(409);
     }
 
-    public function testStrangerCannotModerate(): void
+    public function testStrangerGets404(): void
     {
+        // Игорь не автор заявки Анны, не владелец akvarel и не админ — заявку он «не видит»
         $id = $this->enrollmentOf(self::ANNA, 'akvarel')->getId()->toRfc4122();
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::IGOR));
-        $problem = $this->assertProblem(403);
-        self::assertSame('Подтверждать и отклонять заявку может только владелец кружка или администратор', $problem['detail']);
+        self::assertSame('Заявка не найдена', $this->assertProblem(404)['detail']);
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/reject', [], accessToken: $this->tokenFor(self::IGOR));
-        $this->assertProblem(403);
+        $this->assertProblem(404);
+    }
+
+    public function testStrangerGets404EvenForInvalidTransition(): void
+    {
+        $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
+
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
+
+        $this->assertProblem(404);
     }
 
     public function testAuthorCannotConfirmOwnEnrollment(): void
@@ -136,15 +145,16 @@ final class EnrollmentModerationTest extends ApiTestCase
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
 
-        $this->assertProblem(403);
+        $problem = $this->assertProblem(403);
+        self::assertSame('Подтверждать и отклонять заявку может только владелец кружка или администратор', $problem['detail']);
     }
 
     public function testForbiddenWinsOverInvalidTransition(): void
     {
-        // Чужому пользователю не раскрываем статус заявки: сначала права, потом переход
+        // Автор видит заявку, но не модерирует её: 403 раньше, чем 409 за статус confirmed
         $id = $this->enrollmentOf(self::MARIA, 'swimming-dyush')->getId()->toRfc4122();
 
-        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::ANNA));
+        $this->jsonRequest('POST', '/api/enrollments/'.$id.'/confirm', [], accessToken: $this->tokenFor(self::MARIA));
 
         $this->assertProblem(403);
     }

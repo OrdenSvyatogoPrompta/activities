@@ -72,20 +72,9 @@ final readonly class EnrollmentService
         return $this->enrollments->findByUser($user, $statuses);
     }
 
-    /**
-     * Невидимая пользователю заявка — 404, а не 403, чтобы чужие id нельзя было перебрать.
-     * Владелец кружка и админ её видят, поэтому им — 403 от guard workflow.
-     */
-    public function cancel(User $user, string $id): Enrollment
+    public function cancel(string $id): Enrollment
     {
-        $enrollment = $this->enrollments->findOneWithDetails($id);
-        if (null === $enrollment || !($enrollment->isAuthoredBy($user) || $enrollment->canBeModeratedBy($user))) {
-            throw new NotFoundHttpException('Заявка не найдена');
-        }
-
-        $this->transitions->apply($enrollment, EnrollmentWorkflow::TRANSITION_CANCEL);
-
-        return $enrollment;
+        return $this->transitions->apply($id, EnrollmentWorkflow::TRANSITION_CANCEL);
     }
 
     private function resolveBranch(Club $club, CreateEnrollmentRequest $request): Branch
