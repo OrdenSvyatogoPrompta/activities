@@ -60,24 +60,21 @@ final class MyActivitiesTest extends ApiTestCase
         self::assertSame('2 500 ₽ / мес', $akvarel['price']);
         self::assertSame(['рисование'], $akvarel['tags']);
 
-        // Филиалы активности: совместимые days/timeFrom/timeTo + slots
+        // Филиалы активности: schedule + slots
         self::assertCount(2, $akvarel['branches']);
         [$main, $snegovaya] = $akvarel['branches'];
         self::assertSame('Основной', $main['name']);
         self::assertSame('пр. Океанский, 44', $main['address']);
         self::assertSame('+7 423 243-55-20', $main['phone']);
-        self::assertSame(['Вт', 'Чт', 'Сб'], $main['days']);
-        self::assertSame('15:30', $main['timeFrom']);
-        self::assertSame('17:30', $main['timeTo']);
         self::assertSame('Вт, Чт, Сб · 15:30–17:30', $main['schedule']);
         self::assertSame(['day' => 'Вт', 'timeFrom' => '15:30', 'timeTo' => '17:30'], $main['slots'][0]);
         self::assertCount(3, $main['slots']);
         self::assertSame('Снеговая', $snegovaya['name']);
         self::assertNull($snegovaya['phone']);
-        self::assertSame(['Ср', 'Пт'], $snegovaya['days']);
+        self::assertSame(['Ср', 'Пт'], array_column($snegovaya['slots'], 'day'));
+        self::assertArrayNotHasKey('days', $snegovaya);
 
-        // Входящие заявки: branchId — филиал кружка, activityBranchId — филиал активности
-        $clubBranchIds = $this->clubBranchIdsByName('akvarel');
+        // Входящие заявки привязаны к филиалу активности через activityBranchId
         $activityBranchIds = ['Основной' => $main['id'], 'Снеговая' => $snegovaya['id']];
 
         $enrollments = $akvarel['enrollments'];
@@ -87,9 +84,8 @@ final class MyActivitiesTest extends ApiTestCase
         self::assertSame('2026-10-20', $enrollments[0]['enrolledAt']);
         foreach ($enrollments as $enrollment) {
             self::assertSame('pending', $enrollment['status']);
-            self::assertSame($clubBranchIds[$enrollment['branchName']], $enrollment['branchId']);
             self::assertSame($activityBranchIds[$enrollment['branchName']], $enrollment['activityBranchId']);
-            self::assertNotSame($enrollment['branchId'], $enrollment['activityBranchId']);
+            self::assertArrayNotHasKey('branchId', $enrollment);
         }
     }
 
@@ -153,9 +149,6 @@ final class MyActivitiesTest extends ApiTestCase
         $branch = $activity['branches'][0];
         self::assertSame('Центр', $branch['name']);
         self::assertSame('ул. Светланская, 1', $branch['address']);
-        self::assertSame(['Пн', 'Ср'], $branch['days']);
-        self::assertSame('10:00', $branch['timeFrom']);
-        self::assertSame('11:00', $branch['timeTo']);
         self::assertSame("Пн · 10:00–11:00\nСр · 16:00–17:30", $branch['schedule']);
 
         // Появилась в своём списке и доступна по id
@@ -304,18 +297,5 @@ final class MyActivitiesTest extends ApiTestCase
         self::assertResponseIsSuccessful();
 
         return $this->byName($this->json())[$name]['id'];
-    }
-
-    /**
-     * @return array<string, string> id филиалов кружка по имени
-     */
-    private function clubBranchIdsByName(string $slug): array
-    {
-        $ids = [];
-        foreach ($this->club($slug)->getBranches() as $branch) {
-            $ids[$branch->getName()] = $branch->getId()->toRfc4122();
-        }
-
-        return $ids;
     }
 }

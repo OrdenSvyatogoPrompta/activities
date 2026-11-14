@@ -336,16 +336,15 @@ Club 1─* Branch 1─* ScheduleSlot
   "status": "approved", "moderationComment": null, "clubId": "akvarel",            // ★
   "ageMin": 5, "ageMax": 14, "visitType": "both", "priceType": "pushkin", "priceAmount": 2500, "tags": [], // ★
   "branches": [ { "id": "<uuid>", "name": "Основной", "address": "…", "phone": "…",
-                  "days": ["Вт","Чт","Сб"], "timeFrom": "15:30", "timeTo": "17:30",
-                  "slots": [ … ] } ],                                                // ★ slots
+                  "schedule": "Вт, Чт, Сб · 15:30–17:30", "slots": [ … ] } ],         // ★ slots
   "enrollments": [ { "id": "<uuid>", "personName": "Петрова Анна", "childName": "Маша",
-                     "branchId": "<uuid>", "branchName": "Основной",                 // ★ branchId
+                     "activityBranchId": "<uuid>", "branchName": "Основной",         // ★ activityBranchId
                      "enrolledAt": "2026-10-20", "status": "pending" } ]             // ★ status
 }
 ```
-- `days/timeFrom/timeTo` филиала — для совместимости: дни всех слотов и время первого слота.
 - `enrollments` — заявки в связанный `Club` (пусто, пока активность не одобрена), кроме `cancelled`.
-  `branchId` здесь — id филиала **кружка**; соответствие филиалов активности и кружка сохраняется при одобрении.
+  `activityBranchId` — id филиала **активности**, из которого создан филиал кружка заявки (соответствие
+  сохраняется при одобрении).
 - Организатор видит только имя заявителя и имя ребёнка (контакты — открытый вопрос).
 - Подтверждать/отклонять может владелец кружка; для кружков без владельца — только `ROLE_ADMIN`
   (voter `EnrollmentVoter`). Для confirm/reject/cancel одно правило: кто не видит заявку (не автор,
@@ -634,8 +633,9 @@ C–H — без ошибок), вспомогательными скрипта�
 - **E:** в PATCH отсутствующее/`null` поле не меняется, кроме `lastName` (переданный `null`/`""` стирает фамилию).
 - **F:** `?status=` принимает список через запятую; невидимая заявка в cancel/confirm/reject — `404`, видимая без прав — `403`.
   Дубли защищены `SELECT … FOR UPDATE` строки пользователя.
-- **G:** в `Activity` сверх контракта `price`, `age`, `createdAt`, у филиала `schedule`, у входящей заявки
-  `activityBranchId`; `description` обязателен; порядок проверок confirm/reject: 404 → 403 → 409.
+- **G:** в `Activity` сверх контракта `price`, `age`, у филиала `schedule`, у входящей заявки
+  `activityBranchId` (вместо `branchId`; `days/timeFrom/timeTo` филиала и `createdAt` убраны — фронт их не читал);
+  `description` обязателен; порядок проверок confirm/reject: 404 → 403 → 409.
 - **H:** `PATCH /api/admin/clubs/{slug}` отвечает `{ id, name, isPublished }`; в `club` списка заявок — `isPublished`, `owner`.
 
 **Сделать при слиянии / после первого запуска**

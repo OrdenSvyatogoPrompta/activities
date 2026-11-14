@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Dto\Activity;
 
 /**
- * `branchId` — филиал кружка, `activityBranchId` — филиал активности, из которого он создан.
+ * `activityBranchId` — филиал активности, из которого создан филиал кружка заявки.
  */
 final readonly class IncomingEnrollmentResponse
 {
@@ -13,7 +13,6 @@ final readonly class IncomingEnrollmentResponse
         public string $id,
         public string $personName,
         public ?string $childName,
-        public ?string $branchId,
         public ?string $branchName,
         public ?string $activityBranchId,
         public string $enrolledAt,

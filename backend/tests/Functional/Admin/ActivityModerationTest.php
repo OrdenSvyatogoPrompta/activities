@@ -68,9 +68,6 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame('Основной', $branch['name']);
         self::assertSame('ул. Фокина, 12', $branch['address']);
         self::assertSame('+7 924 111-22-33', $branch['phone']);
-        self::assertSame(['Сб'], $branch['days']);
-        self::assertSame('12:00', $branch['timeFrom']);
-        self::assertSame('14:00', $branch['timeTo']);
         self::assertSame([['day' => 'Сб', 'timeFrom' => '12:00', 'timeTo' => '14:00']], $branch['slots']);
     }
 
@@ -92,9 +89,7 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame('Основной', $first['branchName']);
         self::assertSame('2026-10-20', $first['enrolledAt']);
         self::assertSame('pending', $first['status']);
-
-        $club = $this->clubs()->findOneBySlugWithBranches('akvarel');
-        self::assertSame($club->getBranches()->first()->getId()->toRfc4122(), $first['branchId']);
+        self::assertSame($activity['branches'][0]['id'], $first['activityBranchId']);
 
         $self = $activity['enrollments'][1];
         self::assertSame('Сидоров Игорь', $self['personName']);

@@ -73,7 +73,6 @@ final readonly class ActivityResponseFactory
             priceAmount: $activity->getPriceAmount(),
             price: $this->priceFormatter->format($activity->getPriceType(), $activity->getPriceAmount()),
             tags: $activity->getTags(),
-            createdAt: $activity->getCreatedAt()->format(\DATE_ATOM),
             branches: array_values(array_map($this->branch(...), $activity->getBranches()->toArray())),
             enrollments: array_map($this->incoming(...), $enrollments),
         );
@@ -81,17 +80,12 @@ final readonly class ActivityResponseFactory
 
     private function branch(ActivityBranch $branch): ActivityBranchResponse
     {
-        $first = $branch->getFirstSlot();
-
         return new ActivityBranchResponse(
             id: $branch->getId()->toRfc4122(),
             name: $branch->getName(),
             address: $branch->getAddress(),
             phone: $branch->getPhone(),
             schedule: $this->scheduleFormatter->formatBranch($branch),
-            days: array_column($branch->getDays(), 'value'),
-            timeFrom: $first?->getTimeFromString(),
-            timeTo: $first?->getTimeToString(),
             slots: array_map(ScheduleSlotView::fromEntity(...), $branch->getSlots()),
         );
     }
@@ -104,7 +98,6 @@ final readonly class ActivityResponseFactory
             id: $enrollment->getId()->toRfc4122(),
             personName: $enrollment->getUser()->getName(),
             childName: $enrollment->getChild()?->getFirstName(),
-            branchId: $branch?->getId()->toRfc4122(),
             branchName: $branch?->getName(),
             activityBranchId: $branch?->getSourceActivityBranch()?->getId()->toRfc4122(),
             enrolledAt: $enrollment->getCreatedAt()->format('Y-m-d'),

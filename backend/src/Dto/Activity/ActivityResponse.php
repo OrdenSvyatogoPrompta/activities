@@ -28,7 +28,6 @@ final readonly class ActivityResponse
         public int $priceAmount,
         public string $price,
         public array $tags,
-        public string $createdAt,
         public array $branches,
         public array $enrollments,
     ) {

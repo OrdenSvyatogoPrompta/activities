@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use App\Entity\Enum\DayOfWeek;
 use App\Repository\ActivityBranchRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -93,19 +92,6 @@ class ActivityBranch
         }
 
         return $this;
-    }
-
-    /**
-     * @return list<DayOfWeek>
-     */
-    public function getDays(): array
-    {
-        return ScheduleSlot::days($this->slots);
-    }
-
-    public function getFirstSlot(): ?ScheduleSlot
-    {
-        return $this->getSlots()[0] ?? null;
     }
 
     public function attachToActivity(Activity $activity, int $position): void
