@@ -1,0 +1,19 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
+svg { flex-shrink: 0; }
+
+span {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  @media (max-width: 560px) { max-width: 90px; }
+}

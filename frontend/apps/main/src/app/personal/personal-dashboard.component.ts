@@ -12,6 +12,7 @@ import { AuthService } from '../services/auth.service';
 import { ChildrenService } from '../services/children.service';
 import { EnrollmentsService } from '../services/enrollments.service';
 import { RemoteList } from '../services/remote-list';
+import { HeaderUserComponent } from '../shared/header-user.component';
 import { formatDate, yearsLabel } from '../utils/format';
 import { ActivityFormComponent } from './activity-form.component';
 import { ChildFormComponent } from './child-form.component';
@@ -39,18 +40,18 @@ const DAY_NAMES: DayOfWeek[] = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 
 
 @Component({
   selector: 'act-personal-dashboard',
-  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent],
+  imports: [RouterLink, NgTemplateOutlet, ActivityFormComponent, ChildFormComponent, HeaderUserComponent],
   styleUrl: './personal-dashboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (user(); as user) {
+    @if (user()) {
       <header class="header">
         <a class="header__logo" routerLink="/">Заодно</a>
         <div class="header__actions">
           @if (isAdmin()) {
             <a class="header__link" routerLink="/admin">Модерация</a>
           }
-          <span class="header__user" [title]="user.email">{{ user.name || user.email }}</span>
+          <act-header-user />
           <button class="header__logout" (click)="logout()">Выйти</button>
         </div>
       </header>
