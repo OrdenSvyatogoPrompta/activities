@@ -6,7 +6,7 @@ BACKEND_EXEC := $(COMPOSE) exec backend
 FRONTEND_RUN := $(COMPOSE) run --rm --no-deps frontend
 
 .PHONY: install build start stop \
-	backend-deps jwt-keys console \
+	jwt-keys console \
 	db-migration db-migrate db-fixtures db-reset test-db \
 	lint cs-fix typecheck test check
 
@@ -27,16 +27,6 @@ stop:
 	$(COMPOSE) down
 
 # ── Бэкенд: пакеты и утилиты ───────────────────────────────────────────
-
-# Разовая установка пакетов бэкенда: Flex-рецепты создают конфиги, результат коммитится
-backend-deps:
-	$(BACKEND_RUN) composer require \
-		symfony/orm-pack symfony/serializer-pack symfony/validator symfony/security-bundle \
-		symfony/uid symfony/string symfony/workflow symfony/rate-limiter \
-		lexik/jwt-authentication-bundle gesdinet/jwt-refresh-token-bundle
-	$(BACKEND_RUN) composer require --dev \
-		symfony/test-pack doctrine/doctrine-fixtures-bundle dama/doctrine-test-bundle \
-		friendsofphp/php-cs-fixer
 
 # Ключи JWT для dev (config/jwt/, в git не попадают); существующие не перезаписываются
 jwt-keys:

@@ -28,7 +28,6 @@ make start
 
 | Команда | Что делает |
 |---|---|
-| `make backend-deps` | Разово ставит пакеты бэкенда (Doctrine, Security, JWT, тесты и др.) — см. `docs/backend-requirements.md` |
 | `make jwt-keys` | Генерирует dev-ключи JWT, если их ещё нет |
 | `make console c="…"` | Команда `bin/console` в запущенном бэкенде |
 | `make db-migration` | Генерирует миграцию по изменениям сущностей |
