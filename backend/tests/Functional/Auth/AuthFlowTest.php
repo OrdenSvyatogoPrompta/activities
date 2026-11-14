@@ -97,10 +97,10 @@ final class AuthFlowTest extends AuthApiTestCase
     {
         $this->jsonRequest('POST', '/api/auth/logout');
 
+        // Очищать нечего: cookie gesdinet снимает, только когда она пришла
         self::assertResponseStatusCodeSame(204);
-        $cleared = $this->responseRefreshCookie();
-        self::assertNotNull($cleared);
-        self::assertTrue($cleared->isCleared());
+        self::assertSame('', (string) $this->client->getResponse()->getContent());
+        self::assertNull($this->responseRefreshCookie());
     }
 
     public function testLogoutDoesNotRequireAccessToken(): void
