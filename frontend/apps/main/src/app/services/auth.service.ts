@@ -1,8 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Observable, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
+import { Observable, defer, finalize, firstValueFrom, map, shareReplay, tap } from 'rxjs';
 
 import { ApiClient } from '../api/api-client';
 import { AuthResponse, User } from '../models/user.model';
+
+const REFRESH_LOCK = 'zaodno-auth-refresh';
 
 /** Access-токен живёт только в памяти, refresh — в HttpOnly cookie. */
 @Injectable({ providedIn: 'root' })
@@ -55,7 +57,7 @@ export class AuthService {
   /** Параллельные 401 разделяют один запрос обновления. */
   refresh(): Observable<string> {
     if (!this.refreshInFlight) {
-      this.refreshInFlight = this.api.post<Pick<AuthResponse, 'accessToken'>>('/auth/refresh').pipe(
+      this.refreshInFlight = this.lockedRefresh().pipe(
         map(res => res.accessToken),
         tap(token => this.token.set(token)),
         finalize(() => { this.refreshInFlight = null; }),
@@ -68,6 +70,17 @@ export class AuthService {
   clearSession(): void {
     this.token.set(null);
     this.user.set(null);
+  }
+
+  /**
+   * Refresh-токен одноразовый: вкладки обновляются по очереди под общей блокировкой,
+   * и следующая отправляет уже новую cookie.
+   */
+  private lockedRefresh(): Observable<Pick<AuthResponse, 'accessToken'>> {
+    const request = () => this.api.post<Pick<AuthResponse, 'accessToken'>>('/auth/refresh');
+    const locks = navigator.locks;
+    if (!locks) return request();
+    return defer(async () => locks.request(REFRESH_LOCK, () => firstValueFrom(request())));
   }
 
   private startSession(res: AuthResponse): void {
