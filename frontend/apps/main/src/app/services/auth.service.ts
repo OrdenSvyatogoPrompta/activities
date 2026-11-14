@@ -22,7 +22,6 @@ export class AuthService {
   async restoreSession(): Promise<void> {
     try {
       await firstValueFrom(this.refresh());
-      await this.reloadUser();
     } catch {
       this.clearSession();
     }
@@ -58,8 +57,8 @@ export class AuthService {
   refresh(): Observable<string> {
     if (!this.refreshInFlight) {
       this.refreshInFlight = this.lockedRefresh().pipe(
+        tap(res => this.startSession(res)),
         map(res => res.accessToken),
-        tap(token => this.token.set(token)),
         finalize(() => { this.refreshInFlight = null; }),
         shareReplay({ bufferSize: 1, refCount: false }),
       );
@@ -76,8 +75,8 @@ export class AuthService {
    * Refresh-токен одноразовый: вкладки обновляются по очереди под общей блокировкой,
    * и следующая отправляет уже новую cookie.
    */
-  private lockedRefresh(): Observable<Pick<AuthResponse, 'accessToken'>> {
-    const request = () => this.api.post<Pick<AuthResponse, 'accessToken'>>('/auth/refresh');
+  private lockedRefresh(): Observable<AuthResponse> {
+    const request = () => this.api.post<AuthResponse>('/auth/refresh');
     const locks = navigator.locks;
     if (!locks) return request();
     return defer(async () => locks.request(REFRESH_LOCK, () => firstValueFrom(request())));
