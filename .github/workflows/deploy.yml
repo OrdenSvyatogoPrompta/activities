@@ -24,7 +24,7 @@ jobs:
       matrix:
         image: [web, backend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -81,7 +81,7 @@ jobs:
       DOMAIN: ${{ vars.DOMAIN }}
       SSH_TARGET: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
