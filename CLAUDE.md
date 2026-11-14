@@ -80,7 +80,7 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
 в `main` (в т.ч. мерж PR) сразу собирает образы в GHCR, затем задача `deploy` того же запуска ждёт
 ручного подтверждения (кнопка «Review deployments»; ожидание задаётся правилом Required reviewers
 окружения `production`). Повторная выкатка без пересборки — Re-run задачи `deploy`. Деплой применяет миграции
-(`doctrine:migrations:migrate`) и берёт ключи JWT из секретов окружения `production`
+(`doctrine:migrations:migrate`), на пустую базу накатывает тот же набор, что фикстуры (`app:seed`), и берёт ключи JWT из секретов окружения `production`
 (`JWT_SECRET_KEY`, `JWT_PUBLIC_KEY` — содержимое PEM, `JWT_PASSPHRASE`). Админа на проде выдаёт
 `bin/console app:user:promote <email> --admin`.
 
@@ -135,8 +135,10 @@ Prod: `caddy (TLS, самоподписанный) → web (nginx-unprivileged, 
 - Ошибки — `application/problem+json` (`src/Http/Problem`), тексты на русском; `#[Assert]` — с русским `message:`
   (`symfony/translation` не установлен).
 - Поля для показа (`price`, `age`, `schedule`) формирует сервер (`Service/Formatter`).
-- Фикстуры (`DataFixtures`, dev/test): 18 сидовых кружков без владельца + кружок `akvarel` демо-пользователя,
-  демо-пользователь с детьми и заявками, заявители, админ.
+- Данные — `Service/Seed/DemoData`: 18 кружков каталога (`Service/Catalog`), кружок `akvarel` демо-пользователя,
+  демо-пользователь с детьми и заявками, заявители, админ. В dev/test их грузят фикстуры (`DataFixtures`),
+  на проде — `app:seed` при деплое, только если в базе нет пользователей.
+  Демо-пароли (`password`, `admin`) публичны — на проде их нужно сменить.
 
 ## Тесты и линт
 

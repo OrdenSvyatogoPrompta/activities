@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Admin;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 
 final class EnrollmentListTest extends ApiTestCase
@@ -18,14 +18,14 @@ final class EnrollmentListTest extends ApiTestCase
 
     public function testIsForbiddenForRegularUser(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::DEMO_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(DemoData::DEMO_EMAIL));
 
         $this->assertProblem(403);
     }
 
     public function testDefaultsToPendingEnrollmentsOfAllClubs(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $enrollments = $this->json();
@@ -44,7 +44,7 @@ final class EnrollmentListTest extends ApiTestCase
 
     public function testOwnerlessFilterReturnsEnrollmentsWithClubAndApplicant(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments?status=pending&ownerless=true', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=pending&ownerless=true', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $enrollments = $this->json();
@@ -59,9 +59,9 @@ final class EnrollmentListTest extends ApiTestCase
         self::assertSame('gimnastika-voskhod', $sonya['club']['id']);
         self::assertTrue($sonya['club']['isPublished']);
         self::assertSame($sonya['clubName'], $sonya['club']['name']);
-        self::assertSame(AppFixtures::DEMO_EMAIL, $sonya['user']['email']);
+        self::assertSame(DemoData::DEMO_EMAIL, $sonya['user']['email']);
         self::assertSame('Иванова Мария', $sonya['user']['name']);
-        self::assertSame($this->user(AppFixtures::DEMO_EMAIL)->getId()->toRfc4122(), $sonya['user']['id']);
+        self::assertSame($this->user(DemoData::DEMO_EMAIL)->getId()->toRfc4122(), $sonya['user']['id']);
         self::assertSame('Соня', $sonya['forChild']['firstName']);
         self::assertSame(5, $sonya['forChild']['age']);
         self::assertSame('female', $sonya['forChild']['gender']);
@@ -75,16 +75,16 @@ final class EnrollmentListTest extends ApiTestCase
 
     public function testOwnedClubEnrollmentsHaveOwner(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         $akvarel = $this->findByClub($this->json(), 'akvarel');
-        self::assertSame(AppFixtures::DEMO_EMAIL, $akvarel['club']['owner']['email']);
+        self::assertSame(DemoData::DEMO_EMAIL, $akvarel['club']['owner']['email']);
         self::assertSame('Петрова Анна', $akvarel['user']['name']);
     }
 
     public function testStatusFilter(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments?status=confirmed&ownerless=1', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=confirmed&ownerless=1', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $enrollments = $this->json();
@@ -97,7 +97,7 @@ final class EnrollmentListTest extends ApiTestCase
 
     public function testUnknownStatusReturns422(): void
     {
-        $this->jsonRequest('GET', '/api/admin/enrollments?status=archived', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/enrollments?status=archived', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertContains('status', $this->violationPaths());
     }

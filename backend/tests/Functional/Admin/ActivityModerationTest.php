@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Admin;
 
-use App\DataFixtures\AppFixtures;
 use App\Entity\Activity;
 use App\Entity\ActivityBranch;
 use App\Entity\Club;
@@ -16,6 +15,7 @@ use App\Entity\Enum\VisitType;
 use App\Entity\ScheduleSlot;
 use App\Repository\ActivityRepository;
 use App\Repository\ClubRepository;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 
 final class ActivityModerationTest extends ApiTestCase
@@ -29,21 +29,21 @@ final class ActivityModerationTest extends ApiTestCase
 
     public function testListIsForbiddenForRegularUser(): void
     {
-        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(AppFixtures::DEMO_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(DemoData::DEMO_EMAIL));
 
         $this->assertProblem(403);
     }
 
     public function testListReturnsPendingActivitiesByDefault(): void
     {
-        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $activities = $this->json();
         self::assertNotEmpty($activities);
         self::assertSame(['pending'], array_values(array_unique(array_column($activities, 'status'))));
 
-        $activity = $this->findByName($activities, AppFixtures::PENDING_ACTIVITY_NAME);
+        $activity = $this->findByName($activities, DemoData::PENDING_ACTIVITY_NAME);
         self::assertSame('Наука', $activity['category']);
         self::assertSame('🎲', $activity['emoji']);
         self::assertNull($activity['clubId']);
@@ -58,9 +58,9 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame([], $activity['enrollments']);
 
         self::assertSame([
-            'id' => $this->user(AppFixtures::DEMO_EMAIL)->getId()->toRfc4122(),
+            'id' => $this->user(DemoData::DEMO_EMAIL)->getId()->toRfc4122(),
             'name' => 'Иванова Мария',
-            'email' => AppFixtures::DEMO_EMAIL,
+            'email' => DemoData::DEMO_EMAIL,
         ], $activity['owner']);
 
         self::assertCount(1, $activity['branches']);
@@ -73,7 +73,7 @@ final class ActivityModerationTest extends ApiTestCase
 
     public function testListByStatusApprovedIncludesClubAndIncomingEnrollments(): void
     {
-        $this->jsonRequest('GET', '/api/admin/activities?status=approved', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities?status=approved', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $activity = $this->findByName($this->json(), 'Акварель');
@@ -98,7 +98,7 @@ final class ActivityModerationTest extends ApiTestCase
 
     public function testListWithUnknownStatusReturns422(): void
     {
-        $this->jsonRequest('GET', '/api/admin/activities?status=archived', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities?status=archived', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertContains('status', $this->violationPaths());
     }
@@ -107,20 +107,20 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->pendingActivityId();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $activity = $this->json();
         self::assertSame($id, $activity['id']);
         self::assertSame('approved', $activity['status']);
         self::assertSame('nastolnyye-igry', $activity['clubId']);
-        self::assertSame(AppFixtures::DEMO_EMAIL, $activity['owner']['email']);
+        self::assertSame(DemoData::DEMO_EMAIL, $activity['owner']['email']);
         self::assertSame([], $activity['enrollments']);
 
         $club = $this->clubs()->findOneBySlugWithBranches('nastolnyye-igry');
         self::assertInstanceOf(Club::class, $club);
         self::assertTrue($club->isPublished());
-        self::assertSame(AppFixtures::PENDING_ACTIVITY_NAME, $club->getName());
+        self::assertSame(DemoData::PENDING_ACTIVITY_NAME, $club->getName());
         self::assertSame([Category::Science], $club->getCategories());
         self::assertSame('#6366f1', $club->getColor());
         self::assertSame('🎲', $club->getEmoji());
@@ -132,13 +132,13 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame(PriceType::Paid, $club->getPriceType());
         self::assertSame(1200, $club->getPriceAmount());
         self::assertSame(['настольные игры', 'логика'], $club->getTags());
-        self::assertSame(AppFixtures::DEMO_EMAIL, $club->getOwner()?->getEmail());
+        self::assertSame(DemoData::DEMO_EMAIL, $club->getOwner()?->getEmail());
 
         $source = $club->getSourceActivity();
         self::assertNotNull($source);
         self::assertSame($id, $source->getId()->toRfc4122());
         self::assertSame(ActivityStatus::Approved, $source->getStatus());
-        self::assertSame(AppFixtures::ADMIN_EMAIL, $source->getModeratedBy()?->getEmail());
+        self::assertSame(DemoData::ADMIN_EMAIL, $source->getModeratedBy()?->getEmail());
         self::assertNotNull($source->getModeratedAt());
 
         self::assertCount(1, $club->getBranches());
@@ -153,7 +153,7 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertSame('14:00', $branch->getSlots()[0]->getTimeToString());
 
         // Одобренная активность уходит из очереди модерации
-        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertNotContains($id, array_column($this->json(), 'id'));
     }
 
@@ -161,7 +161,7 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->createPendingActivity('Акварель');
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         self::assertSame('akvarel-2', $this->json()['clubId']);
@@ -171,35 +171,35 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->pendingActivityId();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         $problem = $this->assertProblem(409);
         self::assertSame('Модерировать можно только активность на рассмотрении', $problem['detail']);
         self::assertCount(1, array_filter(
-            $this->clubs()->findBy(['owner' => $this->user(AppFixtures::DEMO_EMAIL)]),
-            static fn (Club $club): bool => AppFixtures::PENDING_ACTIVITY_NAME === $club->getName(),
+            $this->clubs()->findBy(['owner' => $this->user(DemoData::DEMO_EMAIL)]),
+            static fn (Club $club): bool => DemoData::PENDING_ACTIVITY_NAME === $club->getName(),
         ));
     }
 
     public function testApproveRejectedActivityReturns409(): void
     {
         $id = $this->pendingActivityId();
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Нет адреса'], accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Нет адреса'], accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertResponseIsSuccessful();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         $this->assertProblem(409);
     }
 
     public function testApproveUnknownActivityReturns404(): void
     {
-        $this->jsonRequest('POST', '/api/admin/activities/0190f2a0-0000-7000-8000-000000000000/approve', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', '/api/admin/activities/0190f2a0-0000-7000-8000-000000000000/approve', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         $this->assertProblem(404);
 
-        $this->jsonRequest('POST', '/api/admin/activities/not-a-uuid/approve', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', '/api/admin/activities/not-a-uuid/approve', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         $this->assertProblem(404);
     }
 
@@ -208,7 +208,7 @@ final class ActivityModerationTest extends ApiTestCase
         $id = $this->pendingActivityId();
 
         // Автор не может одобрить собственную активность
-        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(AppFixtures::DEMO_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/approve", accessToken: $this->tokenFor(DemoData::DEMO_EMAIL));
 
         $this->assertProblem(403);
         self::assertTrue($this->activities()->findOneWithDetails($id)->isPending());
@@ -218,22 +218,22 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->pendingActivityId();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => '  Укажите точный адрес филиала  '], accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => '  Укажите точный адрес филиала  '], accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         self::assertResponseIsSuccessful();
         $activity = $this->json();
         self::assertSame('rejected', $activity['status']);
         self::assertSame('Укажите точный адрес филиала', $activity['moderationComment']);
         self::assertNull($activity['clubId']);
-        self::assertSame(AppFixtures::DEMO_EMAIL, $activity['owner']['email']);
+        self::assertSame(DemoData::DEMO_EMAIL, $activity['owner']['email']);
 
         $entity = $this->activities()->findOneWithDetails($id);
         self::assertSame(ActivityStatus::Rejected, $entity->getStatus());
-        self::assertSame(AppFixtures::ADMIN_EMAIL, $entity->getModeratedBy()?->getEmail());
+        self::assertSame(DemoData::ADMIN_EMAIL, $entity->getModeratedBy()?->getEmail());
         self::assertNull($entity->getClub());
         self::assertFalse($this->clubs()->slugExists('nastolnyye-igry'));
 
-        $this->jsonRequest('GET', '/api/admin/activities?status=rejected', accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('GET', '/api/admin/activities?status=rejected', accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertContains($id, array_column($this->json(), 'id'));
     }
 
@@ -241,10 +241,10 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->pendingActivityId();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", [], accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", [], accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertContains('comment', $this->violationPaths());
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => '   '], accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => '   '], accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
         self::assertContains('comment', $this->violationPaths());
 
         self::assertTrue($this->activities()->findOneWithDetails($id)->isPending());
@@ -256,7 +256,7 @@ final class ActivityModerationTest extends ApiTestCase
         self::assertNotEmpty($approved);
         $id = $approved[0]->getId()->toRfc4122();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Передумали'], accessToken: $this->tokenFor(AppFixtures::ADMIN_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Передумали'], accessToken: $this->tokenFor(DemoData::ADMIN_EMAIL));
 
         $this->assertProblem(409);
     }
@@ -265,7 +265,7 @@ final class ActivityModerationTest extends ApiTestCase
     {
         $id = $this->pendingActivityId();
 
-        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Нет'], accessToken: $this->tokenFor(AppFixtures::DEMO_EMAIL));
+        $this->jsonRequest('POST', "/api/admin/activities/$id/reject", ['comment' => 'Нет'], accessToken: $this->tokenFor(DemoData::DEMO_EMAIL));
 
         $this->assertProblem(403);
     }
@@ -289,7 +289,7 @@ final class ActivityModerationTest extends ApiTestCase
     private function pendingActivityId(): string
     {
         foreach ($this->activities()->findByStatus(ActivityStatus::Pending) as $activity) {
-            if (AppFixtures::PENDING_ACTIVITY_NAME === $activity->getName()) {
+            if (DemoData::PENDING_ACTIVITY_NAME === $activity->getName()) {
                 return $activity->getId()->toRfc4122();
             }
         }
@@ -300,7 +300,7 @@ final class ActivityModerationTest extends ApiTestCase
     private function createPendingActivity(string $name): string
     {
         $activity = new Activity(
-            owner: $this->user(AppFixtures::DEMO_EMAIL),
+            owner: $this->user(DemoData::DEMO_EMAIL),
             name: $name,
             category: Category::Creativity,
             description: 'Ещё одна студия рисования. Вторая.',

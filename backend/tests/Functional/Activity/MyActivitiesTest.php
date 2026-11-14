@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Activity;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 
 /**
- * Данные — AppFixtures: у Марии одобренная «Акварель» (кружок akvarel, филиалы «Основной»
+ * Данные — DemoData: у Марии одобренная «Акварель» (кружок akvarel, филиалы «Основной»
  * и «Снеговая», 4 входящие заявки) и «Настольные игры» на модерации.
  */
 final class MyActivitiesTest extends ApiTestCase
 {
-    private const string MARIA = AppFixtures::DEMO_EMAIL;
+    private const string MARIA = DemoData::DEMO_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
 
     public function testListRequiresAuthentication(): void
@@ -30,9 +30,9 @@ final class MyActivitiesTest extends ApiTestCase
         self::assertResponseIsSuccessful();
         $activities = $this->byName($this->json());
         self::assertArrayHasKey('Акварель', $activities);
-        self::assertArrayHasKey(AppFixtures::PENDING_ACTIVITY_NAME, $activities);
+        self::assertArrayHasKey(DemoData::PENDING_ACTIVITY_NAME, $activities);
 
-        $pending = $activities[AppFixtures::PENDING_ACTIVITY_NAME];
+        $pending = $activities[DemoData::PENDING_ACTIVITY_NAME];
         self::assertSame('pending', $pending['status']);
         self::assertNull($pending['clubId']);
         self::assertNull($pending['moderationComment']);

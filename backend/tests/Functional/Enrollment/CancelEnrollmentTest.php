@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Enrollment;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -14,7 +14,7 @@ use Symfony\Component\Uid\Uuid;
  */
 final class CancelEnrollmentTest extends ApiTestCase
 {
-    private const string MARIA = AppFixtures::DEMO_EMAIL;
+    private const string MARIA = DemoData::DEMO_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
 
     public function testAuthorCancelsPendingEnrollment(): void
@@ -80,7 +80,7 @@ final class CancelEnrollmentTest extends ApiTestCase
     public function testAdminCannotCancelSomeoneElsesEnrollment(): void
     {
         $id = $this->enrollmentOf(self::MARIA, 'gimnastika-voskhod')->getId()->toRfc4122();
-        $this->loginAs(AppFixtures::ADMIN_EMAIL);
+        $this->loginAs(DemoData::ADMIN_EMAIL);
 
         $this->jsonRequest('POST', '/api/enrollments/'.$id.'/cancel', []);
 

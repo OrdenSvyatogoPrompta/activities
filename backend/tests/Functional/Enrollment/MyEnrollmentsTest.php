@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Enrollment;
 
-use App\DataFixtures\AppFixtures;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 
 /**
@@ -13,7 +13,7 @@ use App\Tests\Functional\ApiTestCase;
  */
 final class MyEnrollmentsTest extends ApiTestCase
 {
-    private const string MARIA = AppFixtures::DEMO_EMAIL;
+    private const string MARIA = DemoData::DEMO_EMAIL;
 
     public function testReturnsOwnEnrollmentsNewestFirst(): void
     {
@@ -95,7 +95,7 @@ final class MyEnrollmentsTest extends ApiTestCase
 
     public function testUserWithoutEnrollmentsGetsEmptyList(): void
     {
-        $this->loginAs(AppFixtures::ADMIN_EMAIL);
+        $this->loginAs(DemoData::ADMIN_EMAIL);
 
         $this->client->request('GET', '/api/me/enrollments');
 

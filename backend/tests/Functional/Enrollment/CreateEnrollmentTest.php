@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Functional\Enrollment;
 
-use App\DataFixtures\AppFixtures;
 use App\Entity\Branch;
 use App\Entity\Club;
 use App\Entity\Enum\Category;
 use App\Entity\Enum\PriceType;
 use App\Entity\Enum\VisitType;
+use App\Service\Seed\DemoData;
 use App\Tests\Functional\ApiTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -20,7 +20,7 @@ use Symfony\Component\Uid\Uuid;
  */
 final class CreateEnrollmentTest extends ApiTestCase
 {
-    private const string MARIA = AppFixtures::DEMO_EMAIL;
+    private const string MARIA = DemoData::DEMO_EMAIL;
     private const string ANNA = 'anna.petrova@example.com';
 
     public function testChildEnrollmentInSingleBranchClubGetsBranchSubstituted(): void
