@@ -1,17 +1,21 @@
-# activities
+# Заодно
 
+Каталог кружков и секций Владивостока с записью на занятия.
 Angular-фронтенд + Symfony-бэкенд + MySQL, всё запускается в Docker.
 Локально нужны только Docker и `make`.
 
 ## Быстрый старт
 
 ```bash
-make build   # зависимости + образы + сборка фронта
+make build      # зависимости + образы + сборка фронта
 make start
+make jwt-keys   # dev-ключи JWT, без них не работает вход
+make db-reset   # схема БД и демо-данные
 ```
 
 - Фронт: http://localhost:8080
 - API: http://localhost:8080/api/ping
+- Демо-аккаунты: `maria@example.com` / `password`, администратор `admin@example.com` / `admin`
 
 Сборка и запуск разделены: `make start` (`docker compose up`) ничего не собирает и не ставит, а только запускает уже подготовленное. Если зависимости не установлены, `make start` остановится и попросит выполнить `make install` (или `make build`).
 
@@ -41,12 +45,13 @@ make start
 | `make test` | Тесты бэкенда (PHPUnit) |
 | `make check` | `lint` + `typecheck` + `test` |
 
-Таргеты `console`, `db-*`, `test-db` и `test` работают в запущенном окружении (`make start`).
+Таргеты `console`, `db-*`, `test-db` и `test` работают в запущенном окружении (`make start`); перед `make test` нужен `make test-db`.
 
 ## Как устроено
 
 ```
 браузер → localhost:8080 → web (nginx) ─┬─ /api/* → backend (Symfony, php-fpm) → mysql
+                                        ├─ /personal/, /org/ → статика из ./public (устаревшие приложения)
                                         └─ остальное → frontend (Angular dev-сервер)
 ```
 
@@ -54,7 +59,7 @@ make start
 |---|---|---|
 | `web` | `nginx:alpine` | Единая точка входа: `/api/` → бэкенд, остальное → фронт |
 | `frontend` | `node:22-alpine` | Angular dev-сервер с hot reload |
-| `backend` | `php:8.5-fpm-alpine` + composer | Symfony (`./backend`), роуты начинаются с `/api` |
+| `backend` | `php:8.5-fpm-alpine` + `intl`, composer | Symfony (`./backend`), роуты начинаются с `/api` |
 | `mysql` | `mysql:8.4` | База `activities`, пользователь/пароль `activities`/`activities` |
 
 Все сервисы в сети `activities.loc`. Код фронта и бэкенда примонтирован в контейнеры — изменения подхватываются без перезапуска.
