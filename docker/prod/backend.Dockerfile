@@ -9,7 +9,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-pr
 COPY backend/ ./
 RUN composer dump-autoload --no-dev --classmap-authoritative
 
-FROM php:8.5-fpm-alpine
+FROM php:8.6-fpm-alpine
 
 # intl — транслитерация slug; icu-dev нужен только на время сборки
 RUN apk add --no-cache icu-libs \
