@@ -1,4 +1,4 @@
-FROM php:8.5-fpm-alpine
+FROM php:8.6-fpm-alpine
 # intl — транслитерация slug; icu-dev нужен только на время сборки
 RUN apk add --no-cache icu-libs \
     && apk add --no-cache --virtual .build-deps icu-dev \
